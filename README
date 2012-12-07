@@ -1,0 +1,101 @@
+
+/*
+ * Copyright 2012 Université de Nantes
+ * Contributor : Julien Cohen (Ascola team, Univ. Nantes)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+This is a plugin for IntelliJ Idea 11.0.2 to extend the capabilities of the
+pull up method refactoring operation for Java.
+
+Author: Julien Cohen (Univ-Nantes, Ascola team), Feb 2012. A large part of the
+source code comes from JetBrains original refactoring operations (under Apache
+Licence v2.0 http://www.apache.org/licenses/LICENSE-2.0), see comments in
+source code.
+
+EXPECTED BEHAVIOR
+=================
+
+Consider the following code:
+
+
+public abstract class S{
+
+}
+
+public class A extends S {
+    Integer m(){
+        return 1;
+    }
+}
+
+public class B extends S {
+   String m(){
+        return "foo";
+    }
+}
+
+
+
+The pull up extension transforms that code as follows:
+
+
+public abstract class S<TmRET> {
+
+    abstract TmRET m();
+}
+
+public class A extends S<Integer> {
+    @Override
+    Integer m(){
+        return 1;
+    }
+}
+
+public class B extends S<String> {
+   @Override
+   String m(){
+        return "foo";
+    }
+}
+
+
+USAGE
+=====
+
+This plugin provides a new entry in the Refactor menu :
+'Pull up with Generics (abstract)'. Place the cursor in the method you want to
+pull up; trigger the 'Pull up with Generics (abstract)' operation in the
+Refactor menu; check the box to indicate you want to pull up an abstract
+version of the method; then click in the Refactor button.
+
+
+
+LIMITATIONS
+===========
+
+Some cases are not covered yet (you will get an exception). Some cases are not
+well handled (an error can be introduced). We provide no guarantee.
+
+
+
+OTHER FEATURES
+==============
+
+This plugin also provides a second operation extension :
+"Extract Superclass (multi)". This extended operation allows for extracting a
+superclass for several classes simulteanously. As for the Pull up extension,
+it can be used with methods that needs to be generified in the superclass. That
+extension also comes with the limitationss stated above.
+
