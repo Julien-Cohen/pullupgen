@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-
 /*
  * Extended by Julien Cohen (Ascola team, Univ. Nantes), Feb/March 2012.
  * Copyright 2012 Université de Nantes for those contributions.            
  */
+
 
 
 import com.intellij.openapi.actionSystem.DataContext;
@@ -138,7 +138,8 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
 
     for (MemberInfoBase<PsiMember> member : members) {
       if (manager.areElementsEquivalent(member.getMember(), aMember)) {
-        member.setChecked(true);
+        member.setChecked(true);    /* rem Julien : checks the checkbox of the user-selected member */
+        member.setToAbstract(true); /* Added by julien : selected methods become abstract in order to introduce  the type variable. */
         break;
       }
     }

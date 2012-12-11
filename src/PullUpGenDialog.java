@@ -30,10 +30,7 @@ import com.intellij.refactoring.HelpID;
 import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoChange;
-import com.intellij.refactoring.ui.ClassCellRenderer;
-import com.intellij.refactoring.ui.DocCommentPanel;
-import com.intellij.refactoring.ui.MemberSelectionPanel;
-import com.intellij.refactoring.ui.RefactoringDialog;
+import com.intellij.refactoring.ui.*;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringHierarchyUtil;
 import com.intellij.refactoring.util.classMembers.InterfaceContainmentVerifier;
@@ -136,10 +133,10 @@ public class PullUpGenDialog extends RefactoringDialog {
     myClassCombo.setRenderer(new ClassCellRenderer(myClassCombo.getRenderer()));
     classComboLabel.setText(RefactoringBundle.message("pull.up.members.to", UsageViewUtil.getLongName(myClass)));
     classComboLabel.setLabelFor(myClassCombo);
-    final PsiClass preselection = getPreselection();
+    final PsiClass superClassPreselection = getSuperClassPreselection();
     int indexToSelect = 0;
-    if (preselection != null) {
-      indexToSelect = mySuperClasses.indexOf(preselection);
+    if (superClassPreselection != null) {
+      indexToSelect = mySuperClasses.indexOf(superClassPreselection);
     }
     myClassCombo.setSelectedIndex(indexToSelect);
     myClassCombo.addItemListener(new ItemListener() {
@@ -160,7 +157,7 @@ public class PullUpGenDialog extends RefactoringDialog {
     return panel;
   }
 
-  private PsiClass getPreselection() {
+  private PsiClass getSuperClassPreselection() {
     PsiClass preselection = RefactoringHierarchyUtil.getNearestBaseClass(myClass, false);
 
     final String statKey = PULL_UP_STATISTICS_KEY + myClass.getQualifiedName();
@@ -205,9 +202,46 @@ public class PullUpGenDialog extends RefactoringDialog {
     close(OK_EXIT_CODE);
   }
 
+                 /* added by Julien */
+        protected class  CustomMemberSelectionTable extends MemberSelectionTable {
+                     public CustomMemberSelectionTable(final List<MemberInfo> memberInfos, String abstractColumnHeader) {
+                            super(memberInfos, abstractColumnHeader);
+                            System.out.println("Debug: Custom Table created.");
+                     }
+
+                     @Override
+                     protected boolean isAbstractColumnEditable(int rowIndex) {
+                        System.out.println("Debug: call to (custom) isAbstractColumnEditable.");
+                        MemberInfo info = myMemberInfos.get(rowIndex);
+                        if (!(info.getMember() instanceof PsiMethod)) return false;
+                        if (info.isStatic()) return false;
+
+                        PsiMethod method = (PsiMethod)info.getMember();
+                        if (method.hasModifierProperty(PsiModifier.ABSTRACT)) {
+                        if (myMemberInfoModel.isFixedAbstract(info) != null) {
+                            return false;
+                        }
+                        }
+
+                        /* return info.isChecked() && myMemberInfoModel.isAbstractEnabled(info); */ return false ;
+                     }
+
+        }
+                   /* added by Julien : tentative pour desactiver la colonne abstract (échec)*/
+        protected class CustomMemberSelectionPanel extends  MemberSelectionPanel {
+                     public CustomMemberSelectionPanel(String title, List<MemberInfo> memberInfo, String abstractColumnHeader) {
+                        super( title, memberInfo, abstractColumnHeader);
+                     }
+                      @Override
+                      protected MemberSelectionTable createMemberSelectionTable(List<MemberInfo> memberInfo, String abstractColumnHeader) {
+                        return new CustomMemberSelectionTable(memberInfo, abstractColumnHeader);
+                    }
+
+        }
+
   protected JComponent createCenterPanel() {
     JPanel panel = new JPanel(new BorderLayout());
-    myMemberSelectionPanel = new MemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract"));
+    myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
     myMemberInfoModel = new MyMemberInfoModel();
     myMemberInfoModel.memberInfoChanged(new MemberInfoChange<PsiMember, MemberInfo>(myMemberInfos));
     myMemberSelectionPanel.getTable().setMemberInfoModel(myMemberInfoModel);
@@ -219,6 +253,7 @@ public class PullUpGenDialog extends RefactoringDialog {
     panel.add(myJavaDocPanel, BorderLayout.EAST);
     return panel;
   }
+
   private final InterfaceContainmentVerifier myInterfaceContainmentVerifier =
     new InterfaceContainmentVerifier() {
       public boolean checkedInterfacesContain(PsiMethod psiMethod) {
@@ -227,36 +262,44 @@ public class PullUpGenDialog extends RefactoringDialog {
     };
 
   private class MyMemberInfoModel extends UsesAndInterfacesDependencyMemberInfoModel {
+    /* all @Override annotations in this internal class added by Julien */
+
+
     public MyMemberInfoModel() {
       super(myClass, getSuperClass(), false, myInterfaceContainmentVerifier);
     }
 
-    public boolean isMemberEnabled(MemberInfo member) {
+    @Override
+    public boolean isMemberEnabled(MemberInfo member) {   /* rem Julien : indicates if a member can be pulled up to the selected superclass */
       PsiClass currentSuperClass = getSuperClass();
       if(currentSuperClass == null) return true;
       if (myMemberInfoStorage.getDuplicatedMemberInfos(currentSuperClass).contains(member)) return false;
-      if (myMemberInfoStorage.getExtending(currentSuperClass).contains(member.getMember())) return false;
-      if (!currentSuperClass.isInterface()) return true;
+      if (myMemberInfoStorage.getExtending(currentSuperClass).contains(member.getMember())) return false;  /* rem Julien cannot do a pull up if the method is already in the selected superclass */
+      if (!currentSuperClass.isInterface()) return true; /* rem Julien : if the selected superclass is a real class (not an interface, the above tests are sufficients, else (interface), continue with some tests */
 
       PsiElement element = member.getMember();
-      if (element instanceof PsiClass && ((PsiClass) element).isInterface()) return true;
+      if (element instanceof PsiClass && ((PsiClass) element).isInterface()) return true;      /* rem Julien : can pull up an interface in an interface */
       if (element instanceof PsiField) {
-        return ((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);
+        return ((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);       /* rem Julien : interfaces can contain static fields (must be final) */
       }
       if (element instanceof PsiMethod) {
-        return !((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);
+        return !((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);      /* rem Julien : don't pull up static methods in interfaces */
       }
-      return true;
+      return true; /* Rem Julien : can pull up instance method in interface */
     }
 
+
+    @Override
     public boolean isAbstractEnabled(MemberInfo member) {
       PsiClass currentSuperClass = getSuperClass();
-      if (currentSuperClass == null || !currentSuperClass.isInterface()) return true; // Julien: disable the 'abstract' checkbox is the selected superclass is an interface.
+      if (currentSuperClass == null || !currentSuperClass.isInterface()) return true;
       return false;
     }
 
+
+    @Override
     public boolean isAbstractWhenDisabled(MemberInfo member) {
-      // Julien: if a method is pulled-up to an interface, it becomes abstract in the interface even if the 'abstract' chekbox is not checked (the checkbox is disabled).
+      // rem Julien: if a method is pulled-up to an interface, it becomes abstract in the interface even if the 'abstract' chekbox is not checked (the checkbox is disabled).
       PsiClass currentSuperClass = getSuperClass();
       if(currentSuperClass == null) return false;
       if (currentSuperClass.isInterface()) {
@@ -266,6 +309,7 @@ public class PullUpGenDialog extends RefactoringDialog {
       }
       return false;
     }
+
 
     public int checkForProblems(@NotNull MemberInfo member) {
       if (member.isChecked()) return OK;
@@ -285,8 +329,11 @@ public class PullUpGenDialog extends RefactoringDialog {
       }
     }
 
+    @Override
     public Boolean isFixedAbstract(MemberInfo member) {
       return Boolean.TRUE;
     }
+      /* rem Julien : according to     MemberSelectionTable.isAbstractColumnEditable(...) (is it the correct reference?), to be non-editable the member must have the abstract modifier AND isFixedAbstract(...) must return TRUE or FALSE (not null). This expresses the fact that an abstract method cannot override a non abstract method. */
+
   }
 }
