@@ -3,9 +3,9 @@
   <description><![CDATA[
      <p> Extends <i>Pull Members Up</i> refactoring to consider methods with different types in different classes to be pulled-up as an abstract method with generic types.</p> <p> Also provides an extension of the <i>Extract Superclass</i> refactoring to support several classes simulteanously.</p>
             ]]></description>
-  <version>0.2a</version>
+  <version>0.2b</version>
   <vendor>Julien Cohen (Ascola team)</vendor>
-  <idea-version since-build="111.277"/>
+  <idea-version since-build="124.?"/>
 
   <application-components>
     <!-- Add your application components here -->
