@@ -48,13 +48,15 @@ import java.awt.event.ItemListener;
 import java.util.ArrayList;
 import java.util.List;
 
+//import static com.intellij.refactoring.ui.AbstractMemberSelectionTable.MyTableModel;
+
 /**
  * @author dsl
  * Date: 18.06.2002
  */
 public class PullUpGenDialog extends RefactoringDialog {
   private final Callback myCallback;
-  private MemberSelectionPanel myMemberSelectionPanel;
+  private CustomMemberSelectionPanel myMemberSelectionPanel;    // rem : initialized by createCenterPanel()
   private MyMemberInfoModel myMemberInfoModel;
   private final PsiClass myClass;
   private final List<PsiClass> mySuperClasses;
@@ -64,6 +66,8 @@ public class PullUpGenDialog extends RefactoringDialog {
   private JComboBox myClassCombo;
   private static final String PULL_UP_STATISTICS_KEY = "pull.up##";
 
+//  static CustomMemberInfo convert (MemberInfo i){}
+    
   public interface Callback {
     boolean checkConflicts(PullUpGenDialog dialog);
   }
@@ -77,7 +81,7 @@ public class PullUpGenDialog extends RefactoringDialog {
     myCallback = callback;
 
     setTitle(JavaPullUpGenHandler.REFACTORING_NAME);
-
+    System.out.println("creation Gen Dialog");
     init();
   }
 
@@ -184,7 +188,7 @@ public class PullUpGenDialog extends RefactoringDialog {
 
   private void updateMemberInfo() {
     final PsiClass targetClass = (PsiClass) myClassCombo.getSelectedItem();
-    myMemberInfos = myMemberInfoStorage.getMemberInfosList(targetClass);
+    myMemberInfos = myMemberInfoStorage.getIntermediateMemberInfosList(targetClass);
     /*Set duplicate = myMemberInfoStorage.getDuplicatedMemberInfos(targetClass);
     for (Iterator iterator = duplicate.getSectionsIterator(); getSectionsIterator.hasNext();) {
       ((MemberInfo) iterator.next()).setChecked(false);
@@ -202,45 +206,13 @@ public class PullUpGenDialog extends RefactoringDialog {
     close(OK_EXIT_CODE);
   }
 
-                 /* added by Julien */
-        protected class  CustomMemberSelectionTable extends MemberSelectionTable {
-                     public CustomMemberSelectionTable(final List<MemberInfo> memberInfos, String abstractColumnHeader) {
-                            super(memberInfos, abstractColumnHeader);
-                            System.out.println("Debug: Custom Table created.");
-                     }
 
-                     @Override
-                     protected boolean isAbstractColumnEditable(int rowIndex) {
-                        System.out.println("Debug: call to (custom) isAbstractColumnEditable.");
-                        MemberInfo info = myMemberInfos.get(rowIndex);
-                        if (!(info.getMember() instanceof PsiMethod)) return false;
-                        if (info.isStatic()) return false;
 
-                        PsiMethod method = (PsiMethod)info.getMember();
-                        if (method.hasModifierProperty(PsiModifier.ABSTRACT)) {
-                        if (myMemberInfoModel.isFixedAbstract(info) != null) {
-                            return false;
-                        }
-                        }
 
-                        /* return info.isChecked() && myMemberInfoModel.isAbstractEnabled(info); */ return false ;
-                     }
-
-        }
-                   /* added by Julien : tentative pour desactiver la colonne abstract (échec)*/
-        protected class CustomMemberSelectionPanel extends  MemberSelectionPanel {
-                     public CustomMemberSelectionPanel(String title, List<MemberInfo> memberInfo, String abstractColumnHeader) {
-                        super( title, memberInfo, abstractColumnHeader);
-                     }
-                      @Override
-                      protected MemberSelectionTable createMemberSelectionTable(List<MemberInfo> memberInfo, String abstractColumnHeader) {
-                        return new CustomMemberSelectionTable(memberInfo, abstractColumnHeader);
-                    }
-
-        }
 
   protected JComponent createCenterPanel() {
     JPanel panel = new JPanel(new BorderLayout());
+    myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
     myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
     myMemberInfoModel = new MyMemberInfoModel();
     myMemberInfoModel.memberInfoChanged(new MemberInfoChange<PsiMember, MemberInfo>(myMemberInfos));
@@ -260,6 +232,9 @@ public class PullUpGenDialog extends RefactoringDialog {
         return PullUpGenHelper.checkedInterfacesContain(myMemberInfos, psiMethod);
       }
     };
+
+
+
 
   private class MyMemberInfoModel extends UsesAndInterfacesDependencyMemberInfoModel {
     /* all @Override annotations in this internal class added by Julien */
@@ -335,5 +310,27 @@ public class PullUpGenDialog extends RefactoringDialog {
     }
       /* rem Julien : according to     MemberSelectionTable.isAbstractColumnEditable(...) (is it the correct reference?), to be non-editable the member must have the abstract modifier AND isFixedAbstract(...) must return TRUE or FALSE (not null). This expresses the fact that an abstract method cannot override a non abstract method. */
 
+
+
+
   }
+
+    // new
+    //void fillGenField(MemberInfo method){
+    //    myMemberSelectionPanel.getTable().fillGenField(method, getSuperClass());
+    //}
+    void fillCanGenFields(){
+        myMemberSelectionPanel.getTable().fillCanGenMembers(getSuperClass());
+    }
+    void fillDirectAbstractPullupFields(){
+        myMemberSelectionPanel.getTable().fillDirectAbstractPullupFields(getSuperClass());
+    }
+    void fillWillGenFields(){
+        myMemberSelectionPanel.getTable().fillWillGenFields();
+    }
+
+    @Deprecated
+    void setToAbstractAll(){
+       myMemberSelectionPanel.getTable().setToAbstractAll();
+    }
 }

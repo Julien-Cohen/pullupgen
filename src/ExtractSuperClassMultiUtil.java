@@ -36,7 +36,6 @@ import com.intellij.psi.util.MethodSignature;
 import com.intellij.psi.util.PsiUtil;
 import com.intellij.psi.util.PsiUtilBase;
 import com.intellij.psi.util.TypeConversionUtil;
-import com.intellij.refactoring.memberPullUp.PullUpHelper;
 import com.intellij.refactoring.ui.ConflictsDialog;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringUtil;
@@ -65,91 +64,115 @@ public class ExtractSuperClassMultiUtil {
                                                 final DocCommentPolicy javaDocPolicy,
                                                 final boolean useGenericUnification)
     throws IncorrectOperationException {    
-      PsiClass[] a = { subclass } ;
-      final Collection<PsiClass> sisterClasses = GenerifyUtils.computeSisterClasses(subclass);
+      //PsiClass[] a = { subclass } ;
+      final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findSisterClasses(subclass);  // rem : in extract super-class, we are only intereste in classes at the sam level For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
       final String packageName = ((PsiJavaFile)subclass.getContainingFile()).getPackageName();
 
       final Collection<PsiClass> selectedSisterClasses = new Vector();
 
+
+      // filter sister classes which have the selected members
       if (!useGenericUnification){
         for (PsiClass c : sisterClasses){
-         if (GenerifyUtils.hasMembers(c, selectedMemberInfos)) selectedSisterClasses.add(c);
+         if (GenAnalysisUtils.hasMembers(c, selectedMemberInfos)) selectedSisterClasses.add(c);
         }
       }
       else {
         for (PsiClass c : sisterClasses){
-         if (GenerifyUtils.hasCompatibleMembers(c, selectedMemberInfos)) selectedSisterClasses.add(c);
+            try {
+                if (GenAnalysisUtils.hasCompatibleMembers(c, selectedMemberInfos)) selectedSisterClasses.add(c);
+            } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
+                throw new IncorrectOperationException(ambiguousOverloading.toString()) ;
+            }
         }
       }
       
       if (selectedSisterClasses.isEmpty()) {throw new IncorrectOperationException ("Internal error: no convenient class found (in extractSuperClassMulti).");}
       //System.out.println(selectedSisterClasses);  // debug
-      a = (PsiClass[]) selectedSisterClasses.toArray(a);
+      //a = (PsiClass[]) selectedSisterClasses.toArray(a);
       
-      return extractSuperClass(project, targetDirectory, superclassName, a, selectedMemberInfos, javaDocPolicy, useGenericUnification);
+      return extractSuperClass(project, targetDirectory, superclassName, selectedSisterClasses, selectedMemberInfos, javaDocPolicy, useGenericUnification);
   }
 
   // Modified (Julien)
   public static PsiClass extractSuperClass(final Project project,
                                            final PsiDirectory targetDirectory,
                                            final String superclassName,
-                                           final PsiClass[] subclasses,
+                                           final Collection <PsiClass> subclasses,
                                            final MemberInfo[] selectedMemberInfos,
                                            final DocCommentPolicy javaDocPolicy,
-                                           final boolean useGenericUnification)
-    throws IncorrectOperationException {
-    PsiClass superclass = JavaDirectoryService.getInstance().createClass(targetDirectory, superclassName);
-    final PsiModifierList superClassModifierList = superclass.getModifierList();
+                                           final boolean useGenericUnification) throws IncorrectOperationException {
+
+    assert (!subclasses.isEmpty());
+    PsiClass aSubClass = subclasses.iterator().next();
+
+    // 1 : Create an empty class
+    PsiClass myfreshsuperclass = JavaDirectoryService.getInstance().createClass(targetDirectory, superclassName);
+    final PsiModifierList superClassModifierList = myfreshsuperclass.getModifierList();
     assert superClassModifierList != null;
     superClassModifierList.setModifierProperty(PsiModifier.FINAL, false);
-    final PsiReferenceList subClassExtends = subclasses[0].getExtendsList(); // TODO : check that other classes do not need to be considered as well
-    assert subClassExtends != null: subclasses;
-    copyPsiReferenceList(subClassExtends, superclass.getExtendsList());
 
-    // create constructors if neccesary
+
+    // 2 : make the correct 'extends' for the new class
+
+    final PsiReferenceList subClassExtends = aSubClass.getExtendsList(); // TODO : check that other classes do not need to be considered as well
+    assert subClassExtends != null: subclasses;
+    copyPsiReferenceList(subClassExtends, myfreshsuperclass.getExtendsList());
+
+
+    // 3 : create constructors if neccesary
     /* PsiMethod[] constructors = getCalledBaseConstructors(subclasses);
     if (constructors.length > 0) {
       createConstructorsByPattern(project, superclass, constructors);
     }  */ // TODO : reactivate these lines (and find the test that justifies that)
 
-    // clear original class' "extends" list
+
+    // 4 : create new 'extends' links
     for (PsiClass c: subclasses) {
       clearPsiReferenceList(c.getExtendsList());
-
-      // make original class extend extracted superclass
-
-      PsiJavaCodeReferenceElement ref = createExtendingReference(superclass, c, selectedMemberInfos);
+      PsiJavaCodeReferenceElement ref = createExtendingReference(myfreshsuperclass, c, selectedMemberInfos);
       c.getExtendsList().add(ref);
     }
 
-    // Julien
-    if (!useGenericUnification) {
-      PullUpHelper pullUpHelper = new PullUpHelper(subclasses[0], superclass, selectedMemberInfos, // TODO: consider other subclasses than [0]  + maybe can use pullUpGenHelper here too?
+
+    // 5 : pull-up selected members (and 'implements')
+
+    /*if (!useGenericUnification) {
+
+      PullUpHelper pullUpHelper = new PullUpHelper(aSubClass, myfreshsuperclass, selectedMemberInfos, // TODO: consider other subclasses than [0]  + maybe can use pullUpGenHelper here too?
                                                  javaDocPolicy
                                     );
       pullUpHelper.moveMembersToBase();
       pullUpHelper.moveFieldInitializations();
     }
-    else {
-      PullUpGenHelper pullUpHelper = new PullUpGenHelper(subclasses[0], superclass, selectedMemberInfos,
+    else {  */
+      PullUpGenHelper pullUpHelper = new PullUpGenHelper(aSubClass, subclasses, myfreshsuperclass, selectedMemberInfos,
                                                  javaDocPolicy
                                     );
-      pullUpHelper.moveMembersToBase();                                         // TODO : make that efficient (unifiers are searched twice: one time for computing the sister classes, and one time for the pull-up)
-      pullUpHelper.moveFieldInitializations();
+        try {
+            pullUpHelper.moveMembersToBase();                // TODO : make that efficient (unifiers are searched twice: one time for computing the sister classes, and one time for the pull-up)
+        } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
+            throw new IncorrectOperationException(ambiguousOverloading.toString()) ;
+        } catch (GenAnalysisUtils.MemberNotImplemented notImplemented) {
+            throw new IncorrectOperationException(notImplemented.toString()) ;
+        }
+        pullUpHelper.moveFieldInitializations();
 
-    }
+   /* } */
 
 
-
-    Collection<MethodSignature> toImplement = OverrideImplementUtil.getMethodSignaturesToImplement(superclass);
+    // 6 : make the superclass abstract if needed
+    Collection<MethodSignature> toImplement = OverrideImplementUtil.getMethodSignaturesToImplement(myfreshsuperclass);
     if (!toImplement.isEmpty()) {
       superClassModifierList.setModifierProperty(PsiModifier.ABSTRACT, true);
     }
-    return superclass;
+
+    // finished
+    return myfreshsuperclass;
   }
 
 
-      private static void createConstructorsByPattern(Project project, final PsiClass superclass, PsiMethod[] patternConstructors) throws IncorrectOperationException {
+  private static void createConstructorsByPattern(Project project, final PsiClass superclass, PsiMethod[] patternConstructors) throws IncorrectOperationException {
     PsiElementFactory factory = JavaPsiFacade.getInstance(project).getElementFactory();
     CodeStyleManager styleManager = CodeStyleManager.getInstance(project);
     for (PsiMethod baseConstructor : patternConstructors) {

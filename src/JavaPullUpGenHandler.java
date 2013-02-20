@@ -33,7 +33,6 @@ import com.intellij.psi.*;
 import com.intellij.refactoring.HelpID;
 import com.intellij.refactoring.RefactoringActionHandler;
 import com.intellij.refactoring.RefactoringBundle;
-import com.intellij.refactoring.classMembers.MemberInfoBase;
 import com.intellij.refactoring.lang.ElementsHandler;
 import com.intellij.refactoring.ui.ConflictsDialog;
 import com.intellij.refactoring.util.CommonRefactoringUtil;
@@ -136,20 +135,25 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
     List<MemberInfo> members = memberInfoStorage.getClassMemberInfos(mySubclass);
     PsiManager manager = mySubclass.getManager();
 
-    for (MemberInfoBase<PsiMember> member : members) {
+    MemberInfo m = members.get(0); // J : default value
+    for (MemberInfo member : members) {
       if (manager.areElementsEquivalent(member.getMember(), aMember)) {
         member.setChecked(true);    /* rem Julien : checks the checkbox of the user-selected member */
         member.setToAbstract(true); /* Added by julien : selected methods become abstract in order to introduce  the type variable. */
+        // TODO (Julien) : ideally should have member.setGenerify(true), but impossible here.
+        m=member;
         break;
       }
     }
 
     final PullUpGenDialog dialog = new PullUpGenDialog(project, aClass, bases, memberInfoStorage, this);
-
+    dialog.fillCanGenFields() ;    // J
+    dialog.fillDirectAbstractPullupFields() ;    // J
+    dialog.fillWillGenFields() ;    // J  (to be done in that order)
+    // dialog.setToAbstractAll() ; // J        note : this is done in fillCanGenFields
 
     dialog.show();
   }
-
 
 
   public boolean checkConflicts(final PullUpGenDialog dialog) {

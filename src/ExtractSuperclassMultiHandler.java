@@ -48,7 +48,10 @@ import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.containers.MultiMap;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.*;
 import java.util.List;
+
+
 
 public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, ExtractSuperclassDialog.Callback, ElementsHandler {
   private static final Logger LOG = Logger.getInstance("#com.intellij.refactoring.extractSuperclassMulti.ExtractSuperclassMultiHandler");
@@ -169,8 +172,16 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
       }
 
       // ask whether to search references to subclass and turn them into refs to superclass if possible
-      if (superclass != null) {
-        ExtractClassUtil.askAndTurnRefsToSuper(project, subclass, superclass);
+      if (superclass != null) {       // rem Julien : copy of the new version
+        final SmartPsiElementPointer<PsiClass> classPointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(subclass);
+        final SmartPsiElementPointer<PsiClass> interfacePointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(superclass);
+        final Runnable turnRefsToSuperRunnable = new Runnable() {
+          public void run() {
+            ExtractClassUtil.askAndTurnRefsToSuper(project, classPointer, interfacePointer);
+          }
+        };
+        SwingUtilities.invokeLater(turnRefsToSuperRunnable);
+          // ExtractClassUtil.askAndTurnRefsToSuper(project, subclass, superclass); //rem Julie : old version
       }
     }
     catch (IncorrectOperationException e) {
