@@ -393,37 +393,49 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       // (rem Julien) case where the member to pull-up is a class/interface, internal or declared as superclass/interface
       else if (GenAnalysisUtils.memberIsImplements(info)){
 
-          System.out.println("pull-up-gen/moveMembersToBase : case 'implements'");
+          //System.out.println("pull-up-gen/moveMembersToBase : case 'implements'");
           PsiClass implementedIntf = (PsiClass) info.getMember();
 
-          final PsiReferenceList sourceReferenceList = info.getSourceReferenceList();    // what is it?
+          final PsiReferenceList sourceReferenceList = info.getSourceReferenceList();    // the class containing the member source code
           //System.out.println(sourceReferenceList); // debug
 
 
           LOG.assertTrue(sourceReferenceList != null);
 
-          //System.out.println(mySourceClass.equals(sourceReferenceList.getParent())); // debug  : true
+          //System.out.println(mySourceClass + " eq " + sourceReferenceList.getParent() + " : " + mySourceClass.equals(sourceReferenceList.getParent())); // debug  : true on A false on B
+
+          // Warning : the member might not be extracted from 'mySourceClass'. This is tested by  mySourceClass.equals(sourceReferenceList.getParent()) .
 
           PsiJavaCodeReferenceElement ref = mySourceClass.equals(sourceReferenceList.getParent()) ?                   // debug : true in the test
-                                            RefactoringUtil.removeFromReferenceList(sourceReferenceList, implementedIntf) : // ???
-                                            RefactoringUtil.findReferenceToClass(sourceReferenceList, implementedIntf);     // ???
+                                            RefactoringUtil.removeFromReferenceList(sourceReferenceList, implementedIntf) : // remove returns a copy
+                                            (PsiJavaCodeReferenceElement)RefactoringUtil.findReferenceToClass   (sourceReferenceList, implementedIntf).copy();     // Julien : make a copy because will be deleted
           //System.out.println(ref); // debug   ( "I" in the test)
 
           // added Julien
-          for (PsiClass c : sisterClasses) { RefactoringUtil.removeFromReferenceList(c.getImplementsList(), implementedIntf);}
-
-          if (ref != null) {
-
-            RefactoringUtil.replaceMovedMemberTypeParameters(ref, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-
-            final PsiReferenceList targetReferenceList =
-              myTargetSuperClass.isInterface() ? myTargetSuperClass.getExtendsList() : myTargetSuperClass.getImplementsList(); // find the target statement in the superclass/interface
-            assert targetReferenceList != null;
-
-            targetReferenceList.add(ref);
-            // where is it removed from subclass?
+          for (PsiClass c : sisterClasses) {
+              RefactoringUtil.removeFromReferenceList(c.getImplementsList(), implementedIntf);
+              // TODO: since mySourclass is in sisterClasses, don't need to removeFromReference... above.
           }
+
+
+          if (ref == null) { throw new IncorrectOperationException("ref to 'implements' not found in "+mySourceClass)  ; }
+
+          // TODO : this should be done for all sister classes
+          RefactoringUtil.replaceMovedMemberTypeParameters(ref, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
+
+          // find the target statement in the superclass/interface
+          final PsiReferenceList targetReferenceList =
+                   myTargetSuperClass.isInterface() ? myTargetSuperClass.getExtendsList() : myTargetSuperClass.getImplementsList();
+          LOG.assertTrue (targetReferenceList != null);
+
+          if (targetReferenceList == null) { throw new IncorrectOperationException("reference list not found in "+myTargetSuperClass)  ; }
+
+          targetReferenceList.add(ref);
+
+
         }
+
+
         else { // (rem Julien) the member refers to a class, but not from 'implements' : either from 'extends', either from inner-class. I guess 'extends' are out of scope of the pull-up operation.
           assert(GenAnalysisUtils.memberIsInnerClass(info));
           PsiClass aClass = (PsiClass)info.getMember();
