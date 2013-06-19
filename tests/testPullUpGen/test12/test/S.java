@@ -1,6 +1,6 @@
 package testPullUpGen.test12.test;
 
-public abstract class S<Tm0> {
+public abstract class S {
 
-    abstract int m(Tm0 i);
+
 }

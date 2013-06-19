@@ -4,6 +4,7 @@ import com.intellij.psi.search.SearchScope;
 import com.intellij.psi.search.searches.ClassInheritorsSearch;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.util.IncorrectOperationException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
@@ -27,57 +28,32 @@ public class GenAnalysisUtils {
      * The sister classes of a class c are the direct (or indirect?) subclasses of the direct superclass (or interface?) of m.
      */
 
-    static List<PsiMethod> findCompatibleMethodsInClass(PsiMethod m, PsiClass c){
-      final List <PsiMethod> result = new LinkedList<PsiMethod>();
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)){
-            if (antiUnifiable(m, m_tmp)) result.add(m_tmp);
-        }
-      return result;
-    }
 
-    static int hasCompatibleMethod(PsiMethod m, PsiClass c, boolean checkpublic){
-        if (!checkpublic) return hasCompatibleMethod(m, c);
-        else return  hasCompatiblePublicMethod(m, c);
-    }
 
-    static int hasCompatibleMethod(PsiMethod m, PsiClass c) {
-        int count = 0;
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if (antiUnifiable(m, m_tmp)) count++;
-        }
-        return count;
-    }
 
-    static boolean hasImplements(PsiClass c, PsiClass i){
-        assert (i.isInterface());
-        for (PsiClass tmp : c.getInterfaces()) {
-          if (tmp.equals(i)) return true ;   // not sure that it works.
-        }
-        return false ;
-    }
 
-    static int hasCompatiblePublicMethod(PsiMethod m, PsiClass c) {
-        int count = 0;
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if (m_tmp.hasModifierProperty("public") && antiUnifiable(m, m_tmp)) count++;
-        }
-        return count;
-    }
 
-    static boolean hasMethodWithSameType(PsiMethod m, PsiClass c){
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if (sameType(m, m_tmp)) return true;   // warning, concept of "same type" not defined
-        }
-        return false;
-    }
 
+
+
+
+
+
+
+    /* ------ Anti-Unification ------  */
 
     static Boolean antiUnifiable(PsiMethod m1, PsiMethod m2){
-      final PsiParameter[] l1=m1.getParameterList().getParameters();
-      final PsiParameter[] l2=m2.getParameterList().getParameters();
-      final int count1 = m1.getParameterList().getParametersCount() ;
-      if (count1 != m2.getParameterList().getParametersCount()) return false ;
+
       if (!antiUnifiable(m1.getReturnType(), m2.getReturnType())) return false ;
+
+      return antiUnifiableParameters(m1.getParameterList().getParameters(), m2.getParameterList().getParameters()) ;
+    }
+
+
+    static Boolean antiUnifiableParameters(PsiParameter[] l1, PsiParameter[] l2){
+      final int count1 = l1.length ;
+      if (count1 != l2.length) return false ;
+
       for (int i = 0; i<count1; i++){
           if (!antiUnifiable(l1[i].getType(), l2[i].getType())) return false ;
       }
@@ -91,26 +67,30 @@ public class GenAnalysisUtils {
         return true ;
     }
 
-    static Boolean sameType (PsiMethod m1, PsiMethod m2){
 
-      if (!m1.getReturnType().equals(m2.getReturnType())) return false ;
-      //if (m1.getParameterList().getParametersCount() == 0 &&  m2.getParameterList().getParametersCount() == 0) return true;
-      //else {
-          if (m1.getParameterList().getParametersCount() != m2.getParameterList().getParametersCount()) return false ;
 
-          for (int i = 0 ; i < m1.getParameterList().getParametersCount(); i++)  {
-            if (!m1.getParameterList().getParameters()[i].equals(m2.getParameterList().getParameters()[i])) return false ;
-          }
-      //}
 
-      return true;
-    }
 
-    static Boolean allTypesEquals (Collection<PsiType> c, PsiType t){
-       for (PsiType t2 : c){
-         if (!t.equals(t2)) return false ;
-       }
-       return true;
+
+
+
+
+
+
+
+
+
+    /* ------ Type, Field and Method Comparison ------ */
+
+    static Boolean allTypesEquals (List <PsiType> c){
+       if (c.size() < 2) return true ;
+        else {
+            PsiType t = c.get(0);
+            for (PsiType t2 : c){
+                if (!t.equals(t2)) return false ;
+            }
+            return true;
+        }
     }
 
     static Boolean allObjectTypes(Collection<PsiType> c){
@@ -120,6 +100,118 @@ public class GenAnalysisUtils {
        return true ;
     }
 
+    static boolean sameFields(PsiField f1, PsiField f2){
+        return ( f1.getName().equals(f2.getName()) && f1.getType().equals(f2.getType()));
+
+    }
+
+    // see also sameMethod
+    static boolean hasMethodWithSameType(PsiMethod m, PsiClass c){
+        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
+            if (sameType(m, m_tmp)) return true;
+        }
+        return false;
+    }
+
+
+    // TODO : use this instead of checkSubClassesHaveSameMethod
+    static boolean sameMethods(PsiMethod m1, PsiMethod m2){
+        return  m1.getName().equals(m2.getName())
+                && sameType(m1,m2)  ;
+    }
+
+    static Boolean sameType (PsiMethod m1, PsiMethod m2){
+        return m1.getReturnType().equals(m2.getReturnType())
+                && sameParameterLists(m1.getParameterList(), m2.getParameterList()) ;
+    }
+
+    static boolean sameParameterLists(PsiParameterList l1, PsiParameterList l2){
+        if (l1.getParametersCount() != l2.getParametersCount()) return false ;
+        PsiParameter[] a1 = l1.getParameters();
+        PsiParameter[] a2 = l2.getParameters();
+
+        for (int i = 0; i< a1.length; i++){
+            if (! a1[i].getTypeElement().getType().equals(a2[i].getTypeElement().getType())) return false ;
+        }
+        return true ;
+
+    }
+
+
+
+    static boolean hasMembers(PsiClass c, MemberInfo[] infos){
+        System.out.println("invocation of hasMembers(" + c + ",...)");
+        for (MemberInfo member: infos){
+            PsiMember x = member.getMember();
+
+            if (x instanceof PsiMethod){
+                PsiMethod xx = (PsiMethod) x ;
+                boolean found = false ;
+                for (PsiMethod m : c.getMethods()) {
+                    if (sameMethods(xx, m)) { found=true; } //else {System.out.println( xx + " and " + m + " found incompatible");}
+                }
+                if (!found) return false;
+            }
+            else if (x instanceof PsiField){
+                PsiField xx = (PsiField) x;
+                boolean found = false ;           // TODO : follow the structure of 'hasCompatibleMembers' and use GenerifyUtils
+                for (PsiField m : c.getFields()) {
+                    if (sameFields(xx, m)) found=true; // break loop ?
+                }
+                if (!found) return false;
+            }
+            else if (x instanceof PsiClass && memberClassComesFromImplements(member)) {  // case "implements x"
+                PsiClass xx = (PsiClass) x ;
+                boolean found = false;
+                for (PsiClassType m : c.getImplementsListTypes()){
+                    if (m.resolve().equals(xx)) {found = true;} // not sure
+                }
+                if (!found) return false;
+            }
+            else throw new IncorrectOperationException("this type of member not handled yet : " + x);
+
+
+        }
+        return true;
+    }
+
+
+
+    @Deprecated    // use sameMethods instead
+    static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
+        final Collection <PsiClass> classes = findAllSubClasses(superClass);
+        //final Collection <PsiClass> result = new LinkedList<PsiClass>();
+        for (PsiClass c: classes){
+            if (!hasMethodWithSameType(m, c))  {
+                if (c.isInterface() || c.hasModifierProperty(PsiModifier.ABSTRACT)) { //the method is not found but it may be in all subclasses, which would be ok.
+                    if (!checkSubClassesHaveSameMethod(m, c)) {
+                        return false;
+                    }
+                }
+                else { // the method is not found, and since that class is concrete, pull up would introduce an error.
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+     /* ------ Lookup for implements (interfaces) ------ */
+
+
+
     static class MemberNotImplemented extends Exception{
         PsiClass c ; PsiMember m;
         MemberNotImplemented(PsiMember _m, PsiClass _c){ m = _m ; c = _c ; }
@@ -127,54 +219,9 @@ public class GenAnalysisUtils {
 
 
 
-    static class AmbiguousOverloading extends Exception{
-        PsiClass c ; PsiMember m;
-        AmbiguousOverloading(PsiMember _m, PsiClass _c){ m = _m ; c = _c ; }
-        public String toString() { return ("Ambiguity in overloading for sister method " + m + " in class " + c + "." ) ;}
-    }
 
-    // must find an implementation of the method on all the branches of the tree of subclasses
-    // Otherwise: throws an exception.
-    static Collection<PsiClass> findSubClassesWithCompatibleMethod(PsiMethod m, PsiClass superClass, boolean checkpublic)
-            throws AmbiguousOverloading, MemberNotImplemented {
-
-      final Collection<PsiClass> res = new LinkedList<PsiClass>();
-      final Collection <PsiClass> directSubClasses = findDirectSubClasses(superClass); // TODO : should limit the scope of search
-
-
-//      System.out.println("considered subclasses :" + directSubClasses); // debug
-
-      for (PsiClass c: directSubClasses){
-          final int count = hasCompatibleMethod(m, c, checkpublic);
-//          System.out.println("for " + c + " count = " + count); // debug
-          if (count>1) throw new AmbiguousOverloading(m,c);
-          if (count==1)  res.add(c); // the method is found       // TODO : check that there is only one anti-unifiable method
-
-          else { // no compatible method. Two cases.
-
-                if (c.isInterface() || c.hasModifierProperty(PsiModifier.ABSTRACT)) {
-                    //the method is not found but it may be in all subclasses, which would be ok.
-
-                    try {
-                        Collection<PsiClass> localresult = findSubClassesWithCompatibleMethod(m, c, checkpublic);
-                        res.addAll(localresult);
-                        }
-                    catch (MemberNotImplemented e) { throw e ;}
-                    }
-                 else {
-                    // the method is not found, and since that class is concrete, pull up would introduce an error.
-                    throw new MemberNotImplemented(m,c);
-
-                 }
-
-          }
-      }
-
-
-      return res;
-    }
     static Collection<PsiClass> findDirectSubClassesWithImplements(PsiClass i, PsiClass superClass)
-        throws MemberNotImplemented
+            throws MemberNotImplemented
     {
         assert (i.isInterface());
         final Collection <PsiClass> directSubClasses = findDirectSubClasses(superClass);
@@ -184,40 +231,72 @@ public class GenAnalysisUtils {
         return directSubClasses ;
     }
 
-    static Collection <PsiClass> findSubClassesWithCompatibleMember(MemberInfo mem, PsiClass superClass) throws MemberNotImplemented, AmbiguousOverloading {
-        PsiMember m = mem.getMember();
-        if (m instanceof PsiMethod){
-            return findSubClassesWithCompatibleMethod((PsiMethod) m, superClass, false);
-            }
 
-        else if (m instanceof PsiClass && memberIsImplements(mem)) { return findDirectSubClassesWithImplements((PsiClass)m, superClass);}
-        else if (m instanceof PsiClass) { return null ; } // TODO : check that
-        else if (m instanceof PsiField) { throw new IncorrectOperationException("implement me : pull up field");}
-        else throw new IncorrectOperationException("cannot find convenient subclasses for this kind of member:" + m);
+    static boolean hasImplements(PsiClass c, PsiClass i){
+        assert (i.isInterface());
+        for (PsiClass tmp : c.getInterfaces()) {
+            if (tmp.equals(i)) return true ;   // not sure that it works.
+        }
+        return false ;
+    }
+
+
+
+    static boolean memberClassComesFromImplements(MemberInfo m){
+
+        /** ************ THIS IS A COMMENT FROM MemberInfoBase.getOverrides ********************
+         * Returns Boolean.TRUE if getMember() overrides something, Boolean.FALSE if getMember()
+         * implements something, null if neither is the case.
+         * If getMember() is a PsiClass, returns Boolean.TRUE if this class comes
+         * from 'extends', Boolean.FALSE if it comes from 'implements' list, null
+         * if it is an inner class.
+         */
+        assert (m.getMember() instanceof PsiClass) ;
+
+        final PsiMember mem = m.getMember();
+
+        if ( !(mem instanceof PsiClass )) return false;  // TODO : remove that line
+        if ( (((PsiClass) mem).isInterface())){
+            if (Boolean.FALSE.equals(m.getOverrides())) return true ;               // TODO : simplify this line
+        }
+        return false;
     }
 
 
 
 
-    @Deprecated
-    static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
-      final Collection <PsiClass> classes = findAllSubClasses(superClass);
-      final Collection <PsiClass> result = new LinkedList<PsiClass>();
-      for (PsiClass c: classes){
-          if (!hasMethodWithSameType(m, c))  {
-            if (c.isInterface() || c.hasModifierProperty(PsiModifier.ABSTRACT)) { //the method is not found but it may be in all subclasses, which would be ok.
-               if (!checkSubClassesHaveSameMethod(m, c)) {
-                   return false;
-               }
-            }
-            else { // the method is not found, and since that class is concrete, pull up would introduce an error.
-               return false;
-            }
 
-          }
-      }
-      return true;
+
+
+
+
+
+
+
+
+
+
+    /* ------ Exceptions ------ */
+
+
+    static class AmbiguousOverloading extends Exception{
+        PsiClass c ; PsiMember m;
+        AmbiguousOverloading(PsiMember _m, PsiClass _c){ m = _m ; c = _c ; }
+        public String toString() { return ("Ambiguity in overloading for sister method " + m + " in class " + c + "." ) ;}
     }
+
+
+
+
+
+
+
+
+
+
+
+    /* ------ Lookup for subclasses and sister classes ------ */
+
 
     // direct subclasses of superclass
     static Collection <PsiClass> findSisterClasses(PsiClass aClass){
@@ -238,6 +317,75 @@ public class GenAnalysisUtils {
 
 
 
+
+
+
+
+
+
+
+
+    /* ------ Lookup for "compatible" members ------ */
+
+
+    @Nullable
+    static Collection <PsiClass> findSubClassesWithCompatibleMember(MemberInfo mem, PsiClass superClass)
+            throws MemberNotImplemented, AmbiguousOverloading {
+        PsiMember m = mem.getMember();
+        if (m instanceof PsiMethod){
+            return findSubClassesWithCompatibleMethod((PsiMethod) m, superClass, false);   // can throw MemberNotImplemented exception but cannot be null
+        }
+
+        else if (m instanceof PsiClass && memberClassComesFromImplements(mem)) { return findDirectSubClassesWithImplements((PsiClass)m, superClass);}
+        else if (m instanceof PsiClass) { return null ; } // TODO : check that
+        else if (m instanceof PsiField) { throw new IncorrectOperationException("implement me : pull up field");}
+        else throw new IncorrectOperationException("cannot handle this kind of member:" + m);
+    }
+
+    // Must find an implementation of the method on all the branches of the tree of subclasses.
+    // Otherwise: throws an exception.
+    @NotNull
+    static Collection<PsiClass> findSubClassesWithCompatibleMethod(PsiMethod m, PsiClass superClass, boolean checkpublic)
+            throws AmbiguousOverloading, MemberNotImplemented {
+
+        final Collection<PsiClass> res = new LinkedList<PsiClass>();
+        final Collection <PsiClass> directSubClasses = findDirectSubClasses(superClass); // TODO : should limit the scope of search
+
+
+//      System.out.println("considered subclasses :" + directSubClasses); // debug
+
+        for (PsiClass c: directSubClasses){
+            final int count = hasCompatibleMethod(m, c, checkpublic);
+//          System.out.println("for " + c + " count = " + count); // debug
+            if (count>1) throw new AmbiguousOverloading(m,c);
+            if (count==1)  res.add(c); // the method is found       // TODO : check that there is only one anti-unifiable method
+
+            else { // no compatible method. Two cases.
+
+                if (c.isInterface() || c.hasModifierProperty(PsiModifier.ABSTRACT)) {
+                    //the method is not found but it may be in all subclasses, which would be ok.
+
+                    try {
+                        Collection<PsiClass> localresult = findSubClassesWithCompatibleMethod(m, c, checkpublic);
+                        res.addAll(localresult);
+                    }
+                    catch (MemberNotImplemented e) { throw e ;}
+                }
+                else {
+                    // the method is not found, and since that class is concrete, pull up would introduce an error.
+                    throw new MemberNotImplemented(m,c);
+
+                }
+
+            }
+        }
+
+
+        return res;
+    }
+
+
+    /* see definition of compatibility at the beginning of the file */
     static List<PsiMethod> findCompatibleMethods(PsiMethod method, Collection<PsiClass> sisterClasses) {
         final List<PsiMethod> sisterMethods = new LinkedList<PsiMethod>();
         for (PsiClass c:sisterClasses){
@@ -253,19 +401,17 @@ public class GenAnalysisUtils {
         return sisterMethods;
     }
 
-    // TODO : use this in check...
-    @Deprecated
-    static boolean sameMethods(PsiMethod m1, PsiMethod m2){
-        return ( m1.getName().equals(m2.getName())
-                && m1.getReturnType().getCanonicalText().equals(m2.getReturnType().getCanonicalText())
-                && sameParameterLists(m1.getParameterList(), m2.getParameterList())) ;
+    /* see definition for compatibility at top of this file */
+    static int hasCompatiblePublicMethod(PsiMethod m, PsiClass c) {
+        int count = 0;
+        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
+            if (m_tmp.hasModifierProperty("public") && antiUnifiable(m, m_tmp)) count++;
+        }
+        return count;
     }
 
-    static boolean sameFields(PsiField f1, PsiField f2){
-        return ( f1.getName().equals(f2.getName()) && f1.getType().equals(f2.getType()));
 
-    }
-
+    /* see def for compatibility at beginiing of this file : same name + anti-unifiable */
     static boolean hasCompatibleMembers(PsiClass c, MemberInfo[] infos) throws AmbiguousOverloading {
         boolean ambiguity = false ;
         PsiClass ambiguityclass = null ;
@@ -296,57 +442,51 @@ public class GenAnalysisUtils {
         return true;
     }
 
-    // TODO : ce code est déjà dans compatibleMethods au quelque-chose comme ça
-    // TODO : remplacer par equals?
-    static boolean sameParameterLists(PsiParameterList l1, PsiParameterList l2){
-        if (l1.getParametersCount() != l2.getParametersCount()) return false ;
-        PsiParameter[] a1 = l1.getParameters();
-        PsiParameter[] a2 = l2.getParameters();
-
-        for (int i = 0; i< a1.length; i++){
-            if (! a1[i].getTypeElement().getType().getCanonicalText().equals(a2[i].getTypeElement().getType().getCanonicalText())) return false ;   // TODO : remove getCanonicalText?
+    static List<PsiMethod> findCompatibleMethodsInClass(PsiMethod m, PsiClass c){
+        final List <PsiMethod> result = new LinkedList<PsiMethod>();
+        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)){
+            if (antiUnifiable(m, m_tmp)) result.add(m_tmp);
         }
-        return true ;
-
+        return result;
     }
 
-    static boolean hasMembers(PsiClass c, MemberInfo[] infos){
-        System.out.println("invocation of hasMembers(" + c + ",...)");
-        for (MemberInfo member: infos){
-            PsiMember x = member.getMember();
-
-            if (x instanceof PsiMethod){
-              PsiMethod xx = (PsiMethod) x ;
-              boolean found = false ;
-              for (PsiMethod m : c.getMethods()) {
-                    if (sameMethods(xx, m)) { found=true; } //else {System.out.println( xx + " and " + m + " found incompatible");}
-              }
-              if (!found) return false;
-            }
-            else if (x instanceof PsiField){
-             PsiField xx = (PsiField) x;
-             boolean found = false ;           // TODO : follow the structure of 'hasCompatibleMembers' and use GenerifyUtils
-              for (PsiField m : c.getFields()) {
-                    if (sameFields(xx, m)) found=true; // break loop ?
-              }
-              if (!found) return false;
-            }
-            else if (x instanceof PsiClass && memberIsImplements(member)) {  // case "implements x"
-                PsiClass xx = (PsiClass) x ;
-                boolean found = false;
-                for (PsiClassType m : c.getImplementsListTypes()){
-                    if (m.resolve().equals(xx)) {found = true;} // not sure
-                }
-                if (!found) return false;
-            }
-            else throw new IncorrectOperationException("this type of member not handled yet : " + x);
-
-
-        }
-        return true;
+    static int hasCompatibleMethod(PsiMethod m, PsiClass c, boolean checkpublic){
+        if (!checkpublic) return hasCompatibleMethod(m, c);
+        else return  hasCompatiblePublicMethod(m, c);
     }
 
-    static boolean memberIsImplements(MemberInfo m){
+    static int hasCompatibleMethod(PsiMethod m, PsiClass c) {
+        int count = 0;
+        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
+            if (antiUnifiable(m, m_tmp)) count++;
+        }
+        return count;
+    }
+
+    /** Same as  hasCompatibleMethod but checks only the types of the parameters, not the return type.
+     * Used to detect problematic overloading in target superclass.
+     * */
+    static int hasParameterCompatibleMethod(PsiMethod m, PsiClass c) {
+        int count = 0;
+        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
+            if (antiUnifiableParameters(m.getParameterList().getParameters(), m_tmp.getParameterList().getParameters())) count++;
+        }
+        return count;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    static boolean memberClassIsInnerClass(MemberInfo m){
 
            /** ************ THIS IS A COMMENT FROM MemberInfoBase.getOverrides ********************
             * Returns Boolean.TRUE if getMember() overrides something, Boolean.FALSE if getMember()
@@ -356,26 +496,10 @@ public class GenAnalysisUtils {
             * if it is an inner class.
             */
 
+        assert (m.getMember() instanceof PsiClass) ;
         PsiMember mem = m.getMember();
 
-        if ( !(mem instanceof PsiClass )) return false;
-        if ( (((PsiClass) mem).isInterface())){
-                if (Boolean.FALSE.equals(m.getOverrides())) return true ;
-        }
-        return false;
-    }
-    static boolean memberIsInnerClass(MemberInfo m){
-
-           /** ************ THIS IS A COMMENT FROM MemberInfoBase.getOverrides ********************
-            * Returns Boolean.TRUE if getMember() overrides something, Boolean.FALSE if getMember()
-            * implements something, null if neither is the case.
-            * If getMember() is a PsiClass, returns Boolean.TRUE if this class comes
-            * from 'extends', Boolean.FALSE if it comes from 'implements' list, null
-            * if it is an inner class.
-            */
-        PsiMember mem = m.getMember();
-
-        if ( !(mem instanceof PsiClass )) return false;
+        if ( !(mem instanceof PsiClass )) return false;    // TODO : remove that line
         if (m.getOverrides() == null ) return true ;
         else return false;
     }
@@ -383,38 +507,55 @@ public class GenAnalysisUtils {
 
 
 
+
+    /* ------ Analysis : can gen ------ */
+
+
+    /** returns null if the method cannot be pulled up with generification */
+    /** returns the smallest set of classes with compatible method in hiearchy otherwise
+     *  (the smallest set with compatible methods that covers all the branches of the hierarchy) */
     // only valid for methods (used for GUI)
     @Nullable
     static Collection<PsiClass> canGenMethod(MemberInfo member, PsiClass superclass){
           assert(member.getMember() instanceof PsiMethod);
 
-          //final PsiMember m = member.getMember();
-          //if (m instanceof PsiMethod){
-          //  PsiMethod method = (PsiMethod) m ; // cannot fail
 
 
-            // check that a compatible method is found in all the hierarchy
-            //if(!checkSubClassesHaveOneCompatibleMethod(method, superclass)) return false ;
+          try {
+                    Collection<PsiClass> res =  findSubClassesWithCompatibleMember(member, superclass);
+                    // no exception raised means there is a compatible member in all branches of the hierarchy.
 
-            try { return findSubClassesWithCompatibleMember(member, superclass);}
-             catch (AmbiguousOverloading e) {
-                    System.out.println("ambiguity found") ; // debug
+                    // TODO : check that the method is not already overriding a method.
+                    // TODO: There might be also a problem when introducing the method in super class introduces a nasty overloading.
+                    if (hasParameterCompatibleMethod((PsiMethod)member.getMember(),superclass) > 0) return null ; // This avoids a possibly problematic overloading in super class.
+                    return res ;
+          }
+          catch (AmbiguousOverloading e) {
+                    System.out.println("ambiguity found (overloading)") ; // debug
                     return null ;
-                }
-             catch (MemberNotImplemented e)    {
+          }
+          catch (MemberNotImplemented e)    {
                  System.out.println("missing implementation for" + member.getMember() + "(with exception)") ; // debug
                  return null;
-             }
+          }
 
-            // DONE .check that we are not in the case of an interface as super type when one of the methods to be pulled up is not public
-            //if (superclass.isInterface()) {
-            //    final List<PsiMethod> l = findCompatibleMethodsInSubclasses(method, superclass);
-            //    for (PsiMethod met : l) { if (!met.isPublic()) return false;}
-            //}
+    }
 
-            // check that the comaptible methods are not nastily overloaded TODO
-            //return true;
-          //}
-          //else return false ; // TODO : generify fields ?
+    // This is used for the GUI : the GUI needs just a boolean, so the set of classes is discarded.
+    // TODO : avoid to lose the information on the set of classes to avoid to have to compute it again later.
+    static boolean computeCanGenMember(MemberInfo member, PsiClass sup) {
+        boolean result;
+        PsiMember m = member.getMember();
+
+        if(!(m instanceof PsiMethod)) {
+            result = false ;
+        }
+        else{
+            Collection<PsiClass> compatClasses = canGenMethod(member, sup);
+
+            if (compatClasses != null)  result = true ;
+            else  result = false ;
+        }
+        return result;
     }
 }

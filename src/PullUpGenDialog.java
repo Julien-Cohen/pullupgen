@@ -37,6 +37,7 @@ import com.intellij.refactoring.util.classMembers.InterfaceContainmentVerifier;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.refactoring.util.classMembers.MemberInfoStorage;
 import com.intellij.refactoring.util.classMembers.UsesAndInterfacesDependencyMemberInfoModel;
+import com.intellij.ui.components.JBList;
 import com.intellij.usageView.UsageViewUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -46,6 +47,7 @@ import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 //import static com.intellij.refactoring.ui.AbstractMemberSelectionTable.MyTableModel;
@@ -66,6 +68,11 @@ public class PullUpGenDialog extends RefactoringDialog {
   private JComboBox myClassCombo;
   private static final String PULL_UP_STATISTICS_KEY = "pull.up##";
 
+  //Julien : to display the list of sister classes.
+  Collection<PsiClass> mySisterClasses ;
+  // JComboBox mySisterClassCombo;
+  JList mySisterClassCombo;
+
 //  static CustomMemberInfo convert (MemberInfo i){}
     
   public interface Callback {
@@ -80,8 +87,13 @@ public class PullUpGenDialog extends RefactoringDialog {
     myMemberInfos = myMemberInfoStorage.getClassMemberInfos(aClass);
     myCallback = callback;
 
+    try {  mySisterClasses = GenAnalysisUtils.findSubClassesWithCompatibleMember(myMemberInfos.get(0), superClasses.get(0)); // TODO : fix-me (for testing display, should use sister classes instead)
+     }
+    catch (GenAnalysisUtils.MemberNotImplemented e) { mySisterClasses = new ArrayList() ;}
+      catch (GenAnalysisUtils.AmbiguousOverloading e )   { mySisterClasses = new ArrayList() ;}   // TODO : fix-me
+
     setTitle(JavaPullUpGenHandler.REFACTORING_NAME);
-    System.out.println("creation Gen Dialog");
+    //System.out.println("creation Gen Dialog");
     init();
   }
 
@@ -117,26 +129,28 @@ public class PullUpGenDialog extends RefactoringDialog {
     return myInterfaceContainmentVerifier;
   }
 
+  // The north panel contains the selector for the target super class (but not the member selection panel).
+  // I (Julien) add the sister classes panel.
   protected JComponent createNorthPanel() {
     JPanel panel = new JPanel();
 
     panel.setLayout(new GridBagLayout());
     GridBagConstraints gbConstraints = new GridBagConstraints();
 
-    gbConstraints.insets = new Insets(4, 0, 4, 8);
+    gbConstraints.insets = new Insets(4, 0, 4, 8); // external paddings
     gbConstraints.weighty = 1;
     gbConstraints.weightx = 1;
-    gbConstraints.gridy = 0;
-    gbConstraints.gridwidth = GridBagConstraints.REMAINDER;
-    gbConstraints.fill = GridBagConstraints.BOTH;
+    gbConstraints.gridy = 0;  // index of te first element to be displayed
+    gbConstraints.gridwidth = 1 ;//GridBagConstraints.REMAINDER; (CHANGED JULIEN)
+    gbConstraints.fill = GridBagConstraints.NONE ;// GridBagConstraints.BOTH;(CHANGED JULIEN)
     gbConstraints.anchor = GridBagConstraints.WEST;
     final JLabel classComboLabel = new JLabel();
     panel.add(classComboLabel, gbConstraints);
 
-    myClassCombo = new JComboBox(mySuperClasses.toArray());
-    myClassCombo.setRenderer(new ClassCellRenderer(myClassCombo.getRenderer()));
-    classComboLabel.setText(RefactoringBundle.message("pull.up.members.to", UsageViewUtil.getLongName(myClass)));
-    classComboLabel.setLabelFor(myClassCombo);
+    myClassCombo = new JComboBox(mySuperClasses.toArray());  // cop (1)
+    myClassCombo.setRenderer(new ClassCellRenderer(myClassCombo.getRenderer())); //cop (2)
+    classComboLabel.setText(RefactoringBundle.message("pull.up.members.to", UsageViewUtil.getLongName(myClass)));   // cop (3)
+    classComboLabel.setLabelFor(myClassCombo);  // cop (4)
     final PsiClass superClassPreselection = getSuperClassPreselection();
     int indexToSelect = 0;
     if (superClassPreselection != null) {
@@ -157,6 +171,21 @@ public class PullUpGenDialog extends RefactoringDialog {
     });
     gbConstraints.gridy++;
     panel.add(myClassCombo, gbConstraints);
+
+    // new (julien)    (based on the handling of myClassCombo)
+    GridBagConstraints sisgbConstraints = (GridBagConstraints) gbConstraints.clone();
+    final JLabel sisclassComboLabel = new JLabel();
+    sisgbConstraints.gridy=0; // increment the target position before adding
+    sisgbConstraints.gridx=1; // increment the target position before adding
+    panel.add(sisclassComboLabel, sisgbConstraints);
+    //mySisterClassCombo = new JComboBox(mySisterClasses.toArray());  // from (1)
+    mySisterClassCombo = new JBList(mySisterClasses.toArray());  // from (1)
+    //mySisterClassCombo.setRenderer(new ClassCellRenderer(mySisterClassCombo.getRenderer()));  // from (2)
+    mySisterClassCombo.setCellRenderer(new ClassCellRenderer(mySisterClassCombo.getCellRenderer()));  // from (2)
+    sisclassComboLabel.setText("Sister classes (to be modified):");       // from (3)
+    sisclassComboLabel.setLabelFor(mySisterClassCombo);                      // from (4)
+    sisgbConstraints.gridy++;   // increment the target position before adding
+    panel.add(mySisterClassCombo, sisgbConstraints);
 
     return panel;
   }
@@ -209,7 +238,7 @@ public class PullUpGenDialog extends RefactoringDialog {
 
 
 
-
+  // The center panel contains the member selection panel and the javadoc panel
   protected JComponent createCenterPanel() {
     JPanel panel = new JPanel(new BorderLayout());
     myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
@@ -244,8 +273,11 @@ public class PullUpGenDialog extends RefactoringDialog {
       super(myClass, getSuperClass(), false, myInterfaceContainmentVerifier);
     }
 
-    @Override
-    public boolean isMemberEnabled(MemberInfo member) {   /* rem Julien : indicates if a member can be pulled up to the selected superclass */
+    @Override                       // what is it supposed to indicate? The first box is checkable? the method is pullupable? is it redundant?
+                                    // TODO: Replace with a read on the "can make abstract" checkbox?
+                                    // TODO : Do we compute several times the same result (fill "can make abstract" ...)
+    public boolean isMemberEnabled(MemberInfo member) {
+    /* rem Julien : indicates if a member can be pulled up to the selected superclass (not clear) */
       PsiClass currentSuperClass = getSuperClass();
       if(currentSuperClass == null) return true;
       if (myMemberInfoStorage.getDuplicatedMemberInfos(currentSuperClass).contains(member)) return false;
@@ -253,12 +285,17 @@ public class PullUpGenDialog extends RefactoringDialog {
       if (!currentSuperClass.isInterface()) return true; /* rem Julien : if the selected superclass is a real class (not an interface, the above tests are sufficients, else (interface), continue with some tests */
 
       PsiElement element = member.getMember();
-      if (element instanceof PsiClass && ((PsiClass) element).isInterface()) return true;      /* rem Julien : can pull up an interface in an interface */
+      if (element instanceof PsiClass && ((PsiClass) element).isInterface()) {
+          /* rem Julien : can pull up an interface in an interface */
+          return true;
+      }
       if (element instanceof PsiField) {
-        return ((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);       /* rem Julien : interfaces can contain static fields (must be final) */
+        /* rem Julien : interfaces can contain static fields (must be final) */
+        return ((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);
       }
       if (element instanceof PsiMethod) {
-        return !((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);      /* rem Julien : don't pull up static methods in interfaces */
+        /* rem Julien : don't pull up static methods in interfaces */
+        return !((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);
       }
       return true; /* Rem Julien : can pull up instance method in interface */
     }
@@ -307,30 +344,26 @@ public class PullUpGenDialog extends RefactoringDialog {
     @Override
     public Boolean isFixedAbstract(MemberInfo member) {
       return Boolean.TRUE;
+
+      /* rem Julien : according to MemberSelectionTable.isAbstractColumnEditable(...) (is it the correct reference?),
+       to be non-editable the member must have the abstract modifier AND isFixedAbstract(...) must return TRUE
+       or FALSE (not null).
+       This expresses the fact that an abstract method cannot override a non abstract method. */
     }
-      /* rem Julien : according to     MemberSelectionTable.isAbstractColumnEditable(...) (is it the correct reference?), to be non-editable the member must have the abstract modifier AND isFixedAbstract(...) must return TRUE or FALSE (not null). This expresses the fact that an abstract method cannot override a non abstract method. */
-
-
-
-
   }
 
-    // new
-    //void fillGenField(MemberInfo method){
-    //    myMemberSelectionPanel.getTable().fillGenField(method, getSuperClass());
-    //}
-    void fillCanGenFields(){
-        myMemberSelectionPanel.getTable().fillCanGenMembers(getSuperClass());
-    }
-    void fillDirectAbstractPullupFields(){
-        myMemberSelectionPanel.getTable().fillDirectAbstractPullupFields(getSuperClass());
-    }
-    void fillWillGenFields(){
-        myMemberSelectionPanel.getTable().fillWillGenFields();
-    }
+  void fillAllCanGenFields(){
+        myMemberSelectionPanel.getTable().fillAllCanGenMembers(getSuperClass());
+  }
+  void fillAllDirectAbstractPullupFields(){
+        myMemberSelectionPanel.getTable().fillAllDirectAbstractPullupFields(getSuperClass());
+  }
+  void fillAllWillGenFields(){
+        myMemberSelectionPanel.getTable().fillAllWillGenFields();
+  }
+  void fillAllCanMakeAbstractFields(){
+        myMemberSelectionPanel.getTable().fillAllCanMakeAbstractFields();
+  }
 
-    @Deprecated
-    void setToAbstractAll(){
-       myMemberSelectionPanel.getTable().setToAbstractAll();
-    }
+
 }

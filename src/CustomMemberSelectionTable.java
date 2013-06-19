@@ -33,7 +33,6 @@ import com.intellij.ui.ColoredTableCellRenderer;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.RowIcon;
 import com.intellij.ui.SimpleTextAttributes;
-import com.intellij.util.IncorrectOperationException;
 
 import javax.swing.*;
 import javax.swing.table.TableColumnModel;
@@ -44,18 +43,24 @@ import java.util.List;
 public class CustomMemberSelectionTable extends MemberSelectionTable {
 //public class CustomMemberSelectionTable extends AbstractMemberSelectionTable<PsiMember, MemberInfo> {
 
-  protected static final int DIRECT_ABSTRACT_PULLUP_COLUMN = 3; // added Julien
-  protected static String directAbstractPullupColumnHeader = "can simply make abstract without Gen";
+  protected static final int DIRECT_ABSTRACT_PULLUP_COLUMN = 4; // added Julien
+  protected static String directAbstractPullupColumnHeader = "no gen";
   protected final Boolean[] directAbstractPullupCheckBoxes;
 
-  protected static final int CAN_GENERIFY_COLUMN = 4; // added Julien
-  protected static String canGenerifyColumnHeader = "can Gen";
+  protected static final int CAN_GENERIFY_COLUMN = 5; // added Julien
+  protected static String canGenerifyColumnHeader = "can gen";
   protected final Boolean[] canGenerifyCheckBoxes ;
 
-  protected static final int WILL_GENERIFY_COLUMN = 5; // added Julien
-  protected static String willGenerifyColumnHeader = "will generify";
+  protected static final int WILL_GENERIFY_COLUMN = 6; // added Julien
+  protected static String willGenerifyColumnHeader = "will gen";
   protected final Boolean[] willGenerifyCheckBoxes ;
 
+
+  protected static final int CAN_MAKE_ABSTRACT_COLUMN = 3; // added Julien
+  protected static String canMakeAbstractColumnHeader = "can make abstract";
+  protected final ThreeValue[] canMakeAbstractCheckBoxes ;
+
+  enum ThreeValue { YesGenerics, YesPlain , No}
 
   public CustomMemberSelectionTable(final List<MemberInfo> memberInfos, String abstractColumnHeader) {
     this(memberInfos, null, abstractColumnHeader);
@@ -63,15 +68,17 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
 
   public CustomMemberSelectionTable(final List<MemberInfo> memberInfos, MemberInfoModel<PsiMember, MemberInfo> memberInfoModel, String abstractColumnHeader) {
     super(memberInfos, memberInfoModel, abstractColumnHeader);
-    directAbstractPullupCheckBoxes = new Boolean[memberInfos.size()];        // j
-    canGenerifyCheckBoxes = new Boolean[memberInfos.size()];        // j
-    willGenerifyCheckBoxes = new Boolean[memberInfos.size()];        // j
+    final int size = memberInfos.size();
+    directAbstractPullupCheckBoxes = new Boolean[size];        // j
+    canGenerifyCheckBoxes = new Boolean[size];                 // j
+    willGenerifyCheckBoxes = new Boolean[size];                // j
+    canMakeAbstractCheckBoxes = new ThreeValue[size];          // j
     GenTableModel t = new GenTableModel (this); //julien
     setModel(t);                                // julien    (this is problematic)
 
     //begin copy from AbstractMemberSelectionTable
-     TableColumnModel model = getColumnModel();
-      model.getColumn(DISPLAY_NAME_COLUMN).setCellRenderer(new CustomTableRenderer(this));
+    TableColumnModel model = getColumnModel();
+    model.getColumn(DISPLAY_NAME_COLUMN).setCellRenderer(new CustomTableRenderer(this));
       { // to be done again (why? because the first time this code is invoked, it acts on the model affected by the first setModel() invocation)
         final int checkBoxWidth = new JCheckBox().getPreferredSize().width;
         model.getColumn(CHECKED_COLUMN).setMaxWidth(checkBoxWidth);
@@ -95,76 +102,82 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
     int willGenerifyColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(willGenerifyColumnHeader.toCharArray(), 0, willGenerifyColumnHeader.length()));
     getColumnModel().getColumn(WILL_GENERIFY_COLUMN).setMaxWidth(willGenerifyColumnWidth);
     getColumnModel().getColumn(WILL_GENERIFY_COLUMN).setPreferredWidth(willGenerifyColumnWidth);
+    int canMakeAbstractColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(canMakeAbstractColumnHeader.toCharArray(), 0, canMakeAbstractColumnHeader.length()));
+    getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setMaxWidth(canMakeAbstractColumnWidth);
+    getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setPreferredWidth(canMakeAbstractColumnWidth);
 
     System.out.println("creation Custom Table (fin)");
 
-
   }
 
+
+
+
+
+  /* --- Compute and Fill properties --- */
+  /* Need to check the boxes (arrays) and the memberInfo */
+
   void fillCanGenMember(MemberInfo member, PsiClass sup){
-          PsiMember m = member.getMember();
 
-
-          if(!(m instanceof PsiMethod)) {
-                System.out.println("cannot generify fields and classes yet, setting cangen(" + m + ") to false.");
-                setCanGenerifyColumnValue(member, false);
-                member.setChecked(false); //TODO : desactivate the checkbox
-                member.setToAbstract(false);
-          }
-          else{
-            Collection <PsiClass> compatClasses = GenAnalysisUtils.canGenMethod(member, sup);  // TODO : use that collection
-
-            System.out.println("for member " + m + " for superclass " + sup + " : " + compatClasses); // debug
-
-            if (compatClasses != null) {
-               setCanGenerifyColumnValue(member, true);
-               member.setToAbstract(true); //Todo : move this line to a better place
-            }
-             else  {
-               setCanGenerifyColumnValue(member, false);
-               member.setChecked(false); //TODO : desactivate the checkbox
-               member.setToAbstract(false); //Todo : move this line to a better place
-            }
-          }
+      if (GenAnalysisUtils.computeCanGenMember(member, sup)) {
+              setCanGenerifyColumnValue(member, true);
+      }
+      else  {
+              setCanGenerifyColumnValue(member, false);
+              member.setChecked(false); //TODO : desactivate the checkbox
+              member.setToAbstract(false);
+      }
   }
 
 
   void fillDirectAbstractPullupField(MemberInfo member, PsiClass s){
-        final PsiMember m = member.getMember();
+        final boolean result = computeCanDirectAbstractPullupField(s, member.getMember());
+        setDirectAbstractPullupColumnValue(member, result);
+  }
+
+  private static boolean computeCanDirectAbstractPullupField(PsiClass s, PsiMember m) {
+        final boolean result ;
         if (m instanceof PsiMethod){
             PsiMethod method = (PsiMethod) m ; // cannot fail
-
-          if (GenAnalysisUtils.checkSubClassesHaveSameMethod(method, s)) setDirectAbstractPullupColumnValue(member, true);
-          else setDirectAbstractPullupColumnValue(member, false);
-
+            result = (GenAnalysisUtils.checkSubClassesHaveSameMethod(method, s)) ;
         }
-        else setDirectAbstractPullupColumnValue(member, false);
+        else result = false ;
+        return result;
   }
 
   // warning, need to initalize needGen and canGen fields before invoking that method
   void fillWillGenField(MemberInfo member) {
         boolean b = !getDirectAbstractPullupColumnValue(member) && getCanGenerifyColumnValue(member);
         setWillGenerifyColumnValue(member,b );
-    }
-
-
-  void fillCanGenMembers(PsiClass sup){
-      for (MemberInfo m : myMemberInfos) {
-             fillCanGenMember(m, sup);
-      }
   }
-  void fillDirectAbstractPullupFields(PsiClass s){
+
+  void fillCanMakeAbstractField(MemberInfo member) {
+      //TODO warning : check the dependencies wetween the various informations.
+      ThreeValue v = ThreeValue.No ;
+      if (getDirectAbstractPullupColumnValue(member)) v = ThreeValue.YesPlain    ;
+      else if  (getCanGenerifyColumnValue(member))    v = ThreeValue.YesGenerics ;
+      setCanMakeAbstractColumnValue(member, v);
+  }
+
+
+  /* --- Iterators for filling --- */
+
+  void fillAllWillGenFields(){
+        for (MemberInfo m : myMemberInfos) fillWillGenField(m);
+  }
+
+  void fillAllCanGenMembers(PsiClass sup){
+      for (MemberInfo m : myMemberInfos) fillCanGenMember(m, sup);
+  }
+
+  void fillAllDirectAbstractPullupFields(PsiClass s){
       for (MemberInfo m : myMemberInfos) fillDirectAbstractPullupField(m, s);
   }
-  void fillWillGenFields(){
-      for (MemberInfo m : myMemberInfos) fillWillGenField(m);
+
+  void fillAllCanMakeAbstractFields(){
+      for (MemberInfo m : myMemberInfos) fillCanMakeAbstractField(m);
   }
 
-
-  @Deprecated
-  void setToAbstractAll(){
-      for (MemberInfo m : myMemberInfos) m.setToAbstract(true);
-  }
 
 
   //new
@@ -172,15 +185,21 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
       int rowIndex = -1 ;
       int i = 0 ;
       int m = myMemberInfos.size();
-      while (i<m && rowIndex == -1)
-
-      { if (myMemberInfos.get(i).equals(memberInfo)) rowIndex = i ;
-          i++ ;}
+      while (i<m && rowIndex == -1){
+          if (myMemberInfos.get(i).equals(memberInfo)) rowIndex = i ;
+          i++ ;
+      }
       if (rowIndex == -1) throw new InternalError("member not found in table");
       return rowIndex ;
   }
 
-  //new
+
+
+
+
+
+  /* --- Getters for boxes --- */
+
   protected Boolean getDirectAbstractPullupColumnValue(MemberInfo memberInfo) {
      // rem : the generify flag is not inside memberInfo, but in the generifyCheckBoxes array.
      return directAbstractPullupCheckBoxes[getRowForMember(memberInfo)];
@@ -190,48 +209,59 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
      // rem : the generify flag is not inside memberInfo, but in the generifyCheckBoxes array.
      return canGenerifyCheckBoxes[getRowForMember(memberInfo)];
   }
-  protected Boolean willGenerifyColumnValue(MemberInfo memberInfo) {
 
+  protected Boolean getwillGenerifyColumnValue(MemberInfo memberInfo) {
      return willGenerifyCheckBoxes[getRowForMember(memberInfo)]; //todo : getRowForMember called too often
   }
-  //new
-  protected void setCanGenerifyColumnValue(MemberInfo memberInfo, boolean b) {
 
+  protected ThreeValue getCanMakeAbstractColumnValue(MemberInfo memberInfo) {
+     return canMakeAbstractCheckBoxes[getRowForMember(memberInfo)];
+  }
+
+
+
+
+
+
+
+  /* --- Setters for boxes --- */
+  protected void setCanGenerifyColumnValue(MemberInfo memberInfo, boolean b) {
      canGenerifyCheckBoxes[getRowForMember(memberInfo)] = b ;
   }
-  protected void setDirectAbstractPullupColumnValue(MemberInfo memberInfo, boolean b) {
 
+  protected void setDirectAbstractPullupColumnValue(MemberInfo memberInfo, boolean b) {
      directAbstractPullupCheckBoxes[getRowForMember(memberInfo)] = b ;
   }
 
-    protected void setWillGenerifyColumnValue(MemberInfo memberInfo, boolean b) {
-
+  protected void setWillGenerifyColumnValue(MemberInfo memberInfo, boolean b) {
      willGenerifyCheckBoxes[getRowForMember(memberInfo)] = b ;
   }
 
-  // new
-  protected boolean isDirectAbstractPullupColumnEditable(int rowIndex) {
-    return false ; // TODO : implement this
-  }
-  // new
-  protected boolean isCanGenerifyColumnEditable(int rowIndex) {
-    return false ; // TODO : implement this
-  }
 
-
-  protected boolean isWillGenerifyColumnEditable(int rowIndex) {
-    return false ; // TODO : implement this
+  /* this fills the "can make abstract" checkboxes, and also the "to abstract" checkboxes (indirectly) */
+  protected void setCanMakeAbstractColumnValue(MemberInfo memberInfo, ThreeValue b) {
+     canMakeAbstractCheckBoxes[getRowForMember(memberInfo)] = b ;
+     if (b==ThreeValue.No)  memberInfo.setToAbstract(false);
+        else   memberInfo.setToAbstract(true);
   }
 
-  @Override    // new
+
+
+
+
+
+
+  /* --- Test editability of columns --- */
+
+    @Override
   protected boolean isAbstractColumnEditable(int rowIndex) {
         return false;
   }
 
 
-    // Added Julien
-    //private static class GenTableModel   extends AbstractTableModel {
-    private static class GenTableModel   extends MyTableModel {
+  // Added Julien
+  //private static class GenTableModel   extends AbstractTableModel {
+  private static class GenTableModel   extends MyTableModel {
         //private final AbstractMemberSelectionTable<PsiMember, MemberInfo> myTable; // J
         private final CustomMemberSelectionTable myTableCopy ;
 
@@ -240,16 +270,16 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
         public GenTableModel(CustomMemberSelectionTable table) {
             super(table);      //j
             myTableCopy = table;
-            System.out.println("creation Custom MyTableModel (fin)");
+            System.out.println("creation Custom MyTableModel (fin)"); // DEBUG
         }
 
         public int getColumnCount() {
-            System.out.println("get column count (MyTableModel)");
+            System.out.println("get column count (MyTableModel)");   // DEBUG
             if (myTableCopy.myAbstractEnabled) {
-                return (6);         //julien
+                return (7);         //julien
             }
             else {
-                return (5); //julien
+                return (6); //julien
             }
         }
 
@@ -259,9 +289,16 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
     }     */
 
         public Class getColumnClass(int columnIndex) {
-            if (columnIndex == CHECKED_COLUMN || columnIndex == ABSTRACT_COLUMN || columnIndex == DIRECT_ABSTRACT_PULLUP_COLUMN || columnIndex == CAN_GENERIFY_COLUMN|| columnIndex == WILL_GENERIFY_COLUMN) {     //julien
+            if (columnIndex == CHECKED_COLUMN
+                    || columnIndex == ABSTRACT_COLUMN
+                    || columnIndex == DIRECT_ABSTRACT_PULLUP_COLUMN
+                    || columnIndex == CAN_GENERIFY_COLUMN
+                    || columnIndex == WILL_GENERIFY_COLUMN
+                    //|| columnIndex == CAN_MAKE_ABSTRACT_COLUMN
+                    ) {     //julien
                 return Boolean.class;
             }
+            if (columnIndex == CAN_MAKE_ABSTRACT_COLUMN)   return ThreeValue.class ;
             return super.getColumnClass(columnIndex);
         }
 
@@ -282,12 +319,14 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
                 case DISPLAY_NAME_COLUMN:
                     return memberInfo.getDisplayName();
 
-                case DIRECT_ABSTRACT_PULLUP_COLUMN:                                  //julien
-                    return myTableCopy.getDirectAbstractPullupColumnValue(memberInfo); //julien
-                case CAN_GENERIFY_COLUMN:                                  //julien
-                    return myTableCopy.getCanGenerifyColumnValue(memberInfo); //julien
-                case WILL_GENERIFY_COLUMN:                                  //julien
-                    return myTableCopy.willGenerifyColumnValue(memberInfo); //julien
+                case DIRECT_ABSTRACT_PULLUP_COLUMN:                                    //julien
+                    return myTableCopy.getDirectAbstractPullupColumnValue(memberInfo);
+                case CAN_GENERIFY_COLUMN:                                              //julien
+                    return myTableCopy.getCanGenerifyColumnValue(memberInfo);
+                case WILL_GENERIFY_COLUMN:                                             //julien
+                    return myTableCopy.getwillGenerifyColumnValue(memberInfo);
+                case CAN_MAKE_ABSTRACT_COLUMN:                                         //julien
+                    return myTableCopy.getCanMakeAbstractColumnValue (memberInfo);
                 default:
                     throw new RuntimeException("Incorrect column index");
             }
@@ -301,12 +340,14 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
                     return myTableCopy.myAbstractColumnHeader;
                 case DISPLAY_NAME_COLUMN:
                     return DISPLAY_NAME_COLUMN_HEADER;
-                case DIRECT_ABSTRACT_PULLUP_COLUMN:                   //julien
-                    return directAbstractPullupColumnHeader;                   //julien
-                case CAN_GENERIFY_COLUMN:                   //julien
-                    return canGenerifyColumnHeader;                   //julien
-                case WILL_GENERIFY_COLUMN:                   //julien
-                    return willGenerifyColumnHeader;                   //julien
+                case DIRECT_ABSTRACT_PULLUP_COLUMN:           //julien
+                    return directAbstractPullupColumnHeader;
+                case CAN_GENERIFY_COLUMN:                     //julien
+                    return canGenerifyColumnHeader;
+                case WILL_GENERIFY_COLUMN:                    //julien
+                    return willGenerifyColumnHeader;
+                case CAN_MAKE_ABSTRACT_COLUMN:                //julien
+                    return canMakeAbstractColumnHeader;
                 default:
                     throw new RuntimeException("Incorrect column index");
             }
@@ -315,15 +356,19 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
         public boolean isCellEditable(int rowIndex, int columnIndex) {
             switch (columnIndex) {
                 case CHECKED_COLUMN:
-                    return myTableCopy.myMemberInfoModel.isMemberEnabled(myTableCopy.myMemberInfos.get(rowIndex));
+                    final MemberInfo m = myTableCopy.myMemberInfos.get(rowIndex);
+                    return (myTableCopy.myMemberInfoModel.isMemberEnabled(m))
+                            && myTableCopy.getCanMakeAbstractColumnValue(m) != ThreeValue.No; // todo: does that work?
                 case ABSTRACT_COLUMN:
                     return myTableCopy.isAbstractColumnEditable(rowIndex);
                 case DIRECT_ABSTRACT_PULLUP_COLUMN:
-                    return myTableCopy.isDirectAbstractPullupColumnEditable(rowIndex);
+                    return false ;
                 case CAN_GENERIFY_COLUMN:
-                    return myTableCopy.isCanGenerifyColumnEditable(rowIndex);
+                    return false ;
                 case WILL_GENERIFY_COLUMN:
-                    return myTableCopy.isWillGenerifyColumnEditable(rowIndex);
+                    return false ;
+                case CAN_MAKE_ABSTRACT_COLUMN:
+                    return false;
             }
             return false;
         }
@@ -348,6 +393,8 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
                 myTableCopy.willGenerifyCheckBoxes[rowIndex] = ((Boolean)aValue).booleanValue();
 
             }
+            // TODO : need to add a case for "can make abstract" columns which is not editable?
+
 
             Collection<MemberInfo> changed = Collections.singletonList(myTableCopy.myMemberInfos.get(rowIndex));
             myTableCopy.fireMemberInfoChange(changed);

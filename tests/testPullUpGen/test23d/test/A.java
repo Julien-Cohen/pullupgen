@@ -1,10 +1,12 @@
-package testPullUpGen.test12.test;
+package testPullUpGen.test23d.test;
+
+
 
 /**
  * Test : pull up m
  */
 public class A extends S {
-    int m(Integer i){
+    private int m(Integer i){
         return 1;
     }
 }

@@ -44,28 +44,39 @@ class GenBuildUtils {
         }
     }
 
-    static String buildTypeParameter(int pos, String name, PsiElementFactory factory){
-        if (pos == -1){
-            return "T" + name + "RET" ; // Todo: check that the type name is fresh
-        }
-        else {
-            return "T" + name + pos   ; // Todo: check that the type name is fresh
-        }
+    static String buildTypeParameter(int pos, String name, Collection<String> boundNames){
+        String tentative =  (pos == -1) ? ("T" + name + "RET") : ("T" + name + pos) ;
+        while (boundNames.contains(tentative)) tentative= tentative+"x" ;
+        return tentative;
+
     }
 
 
-    // TODO : (0.2b) I have made the concept of conpatibility stronger than in 0.2a, so check if some later tests have became unnecessary.
+
+    static void updateExtendsStatementsInSisterClasses(
+            DependentSubstitution megasub,
+            PsiClass superClass,
+            PsiElementFactory factory) {
 
 
-    static void updateExtendsStatementsInSisterClasses(List<PsiMethod> sisterMethods, Map<PsiTypeParameter, Map<PsiClass,PsiType>> sub, PsiClass superClass, PsiElementFactory factory) {
-          
-      for (PsiTypeParameter t: sub.keySet()){
-        Map<PsiClass,PsiType> m = sub.get(t);
+      for (PsiTypeParameter t: megasub.keySet()){
+        final Map<PsiClass,PsiType> m = megasub.get(t);
         for (PsiClass c : m.keySet()){
-          final PsiJavaCodeReferenceElement r = findReferenceToSuperclass(c, superClass);
-          addTypeParameterToReference(r, m.get(c), factory);
+          final PsiJavaCodeReferenceElement extendsRef = findReferenceToSuperclass(c, superClass);
+          addTypeParameterToReference(extendsRef, megasub.get(t,c), factory);
           }
       }
+    }
+
+    /** Replace "class A extends S" by "class A extends S < Object >" when S has a type parameter */
+    static void alignParameters(PsiClass superclass, PsiClass toBeAligned, PsiElementFactory factory){
+        final int l_super      = superclass.getTypeParameters().length;
+        final int l_class      = toBeAligned.getTypeParameters().length;
+        final PsiType ob = factory.createTypeFromText("Object", null);
+        final PsiJavaCodeReferenceElement extendsRef = findReferenceToSuperclass(toBeAligned, superclass);
+
+        for (int i=0; i< l_super - l_class; i++ )  addTypeParameterToReference(extendsRef, ob, factory);
+
     }
 
     static PsiJavaCodeReferenceElement findReferenceToSuperclass(PsiClass c, PsiClass s){

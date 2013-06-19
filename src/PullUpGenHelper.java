@@ -75,10 +75,11 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
   private HashSet<PsiMember> myMembersAfterMove = null;
   private final PsiManager myManager;
 
-  protected Collection<PsiClass> sisterClasses = null;
+  @Nullable
+  protected Collection<PsiClass> sisterClasses = null;   // julien
 
 
-    public PullUpGenHelper(PsiClass sourceClass, PsiClass targetSuperClass, MemberInfo[] membersToMove,
+  public PullUpGenHelper(PsiClass sourceClass, PsiClass targetSuperClass, MemberInfo[] membersToMove,
                          DocCommentPolicy javaDocPolicy) {
     super(sourceClass.getProject());
     mySourceClass = sourceClass;
@@ -88,6 +89,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
     myIsTargetInterface = targetSuperClass.isInterface();
     myManager = mySourceClass.getManager();
   }
+
 
   public PullUpGenHelper(PsiClass sourceClass, Collection<PsiClass> classes, PsiClass targetSuperClass, MemberInfo[] membersToMove,
                          DocCommentPolicy javaDocPolicy) {
@@ -239,11 +241,12 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
     // (Julien) compute the set of sister methods (which have all the compatible members)
 
     if (sisterClasses == null )
-            initSisterClasses() ;
+            initSisterClasses(myMembersToMove[0]) ;
     assert (sisterClasses != null);
 
 
-
+    final List<String> boundNames = GenSubstitutionUtils.boundTypeNames(myTargetSuperClass); // Used to ensure fresh type parameter names.
+    for (PsiClass c : sisterClasses) GenBuildUtils.alignParameters(myTargetSuperClass, c, elementFactory);
 
     // do actual move (for each member to move)
     for (MemberInfo info : myMembersToMove) {
@@ -274,14 +277,16 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
           //for (PsiMethod m: sisterMethods) System.out.println(m);
           
           // 2)find which types have to be parameterized
-          final Map<PsiTypeParameter, Map<PsiClass,PsiType>> initialParameters = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses); // don't modify this : It will be used later to know the type parameters of the initial clases TODO: improve that
-          Map<PsiTypeParameter, Map<PsiClass,PsiType>> computingParameters = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses);
-            
-//        final List <Integer> positions = GenerifyUtils.positionsToUnify(sisterMethods); // -1 represent the return type position
-          //final Map<Integer, PsiTypeParameter> sub = GenerifyUtils.unify(sisterMethods,computecurrentsubstitution(), method.getName(), JavaPsiFacade.getElementFactory(method.getProject()));
 
-          final GenSubstitutionUtils.ParamSubstitution sub = GenSubstitutionUtils.unify(sisterMethods, computingParameters, method.getName(), elementFactory); // TODO : fix that (empty substitution)
-          //System.out.println("Positions to generify:" + positions );
+          final DependentSubstitution initialParameters = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory); // used later to know the type parameters of the initial clases TODO: improve that
+          DependentSubstitution       theMegaSubst      = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory);   // TODO: clone initialParameters above?
+            
+          // final List <Integer> positions = GenerifyUtils.positionsToUnify(sisterMethods); // -1 represent the return type position
+          // final Map<Integer, PsiTypeParameter> sub = GenerifyUtils.unify(sisterMethods,computecurrentsubstitution(), method.getName(), JavaPsiFacade.getElementFactory(method.getProject()));
+
+
+            final GenSubstitutionUtils.ParamSubstitution sub = GenSubstitutionUtils.antiunify(sisterMethods, theMegaSubst, method.getName(), elementFactory, boundNames); // TODO : fix that (empty substitution)
+          // System.out.println("Positions to generify:" + positions );
             
 
 
@@ -307,7 +312,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
 
           // 7) Add type parameters to the superclass
-            Map <PsiTypeParameter, Map<PsiClass, PsiType>> newParameters = GenSubstitutionUtils.difference(computingParameters, initialParameters);
+            DependentSubstitution newParameters = GenSubstitutionUtils.difference(theMegaSubst, initialParameters);
             for (PsiTypeParameter t: newParameters.keySet()){
               myTargetSuperClass.getTypeParameterList().add(t);
           }
@@ -318,11 +323,9 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
           final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(methodCopy);
 
 
-
-
           
           // 9) Add the parameters in sisterclasses extends statements
-          GenBuildUtils.updateExtendsStatementsInSisterClasses(sisterMethods, newParameters, myTargetSuperClass, elementFactory);
+          GenBuildUtils.updateExtendsStatementsInSisterClasses(newParameters, myTargetSuperClass, elementFactory);
           //System.out.println("Extends statements updated in sister classes.");
           
           // end Julien
@@ -391,7 +394,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       }
 
       // (rem Julien) case where the member to pull-up is a class/interface, internal or declared as superclass/interface
-      else if (GenAnalysisUtils.memberIsImplements(info)){
+      else if (GenAnalysisUtils.memberClassComesFromImplements(info)){
 
           //System.out.println("pull-up-gen/moveMembersToBase : case 'implements'");
           PsiClass implementedIntf = (PsiClass) info.getMember();
@@ -437,7 +440,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
 
         else { // (rem Julien) the member refers to a class, but not from 'implements' : either from 'extends', either from inner-class. I guess 'extends' are out of scope of the pull-up operation.
-          assert(GenAnalysisUtils.memberIsInnerClass(info));
+          assert(GenAnalysisUtils.memberClassIsInnerClass(info));
           PsiClass aClass = (PsiClass)info.getMember();
           throw new IncorrectOperationException("inner classes not handled yet : " + aClass);  /*
           RefactoringUtil.replaceMovedMemberTypeParameters(aClass, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
@@ -485,18 +488,15 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
   }
 
 
-    void initSisterClasses()
+    void initSisterClasses(MemberInfo memberToMove)
             throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
 
-        MemberInfo m =  myMembersToMove[0] ;
-        //PsiMember mem = m.getMember();
 
-
-        Collection <PsiClass> baseCol = GenAnalysisUtils.findSubClassesWithCompatibleMember(m, this.myTargetSuperClass);
+        Collection <PsiClass> baseCol = GenAnalysisUtils.findSubClassesWithCompatibleMember(memberToMove, this.myTargetSuperClass);
 
         Collection <PsiClass> tmpCol;
         for(int i =1 ; i< myMembersToMove.length; i++){
-            tmpCol = GenAnalysisUtils.findSubClassesWithCompatibleMember(m, this.myTargetSuperClass);
+            tmpCol = GenAnalysisUtils.findSubClassesWithCompatibleMember(memberToMove, this.myTargetSuperClass);
             if (baseCol.size() != tmpCol.size() || !baseCol.containsAll(tmpCol)) throw new IncorrectOperationException("these members cannot be pulled-up from the same sister classes, please pull them up with two separate refactoring operations.");
             // question: que faire si les listes sont différentes pour différentes membres?
             // Peut-on prendre l'intersection? (réfléchir)
