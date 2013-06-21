@@ -43,16 +43,12 @@ import java.util.List;
 public class CustomMemberSelectionTable extends MemberSelectionTable {
 //public class CustomMemberSelectionTable extends AbstractMemberSelectionTable<PsiMember, MemberInfo> {
 
-  protected static final int DIRECT_ABSTRACT_PULLUP_COLUMN = 4; // added Julien
-  protected static String directAbstractPullupColumnHeader = "no gen";
   protected final Boolean[] directAbstractPullupCheckBoxes;
 
-  protected static final int CAN_GENERIFY_COLUMN = 5; // added Julien
-  protected static String canGenerifyColumnHeader = "can gen";
+
   protected final Boolean[] canGenerifyCheckBoxes ;
 
-  protected static final int WILL_GENERIFY_COLUMN = 6; // added Julien
-  protected static String willGenerifyColumnHeader = "will gen";
+
   protected final Boolean[] willGenerifyCheckBoxes ;
 
 
@@ -91,17 +87,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
       model.getColumn(ABSTRACT_COLUMN).setPreferredWidth(width);
     }
     //end copy
-
-    //new
-    int generifyColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(directAbstractPullupColumnHeader.toCharArray(), 0, directAbstractPullupColumnHeader.length()));
-    getColumnModel().getColumn(DIRECT_ABSTRACT_PULLUP_COLUMN).setMaxWidth(generifyColumnWidth);
-    getColumnModel().getColumn(DIRECT_ABSTRACT_PULLUP_COLUMN).setPreferredWidth(generifyColumnWidth);
-    int canGenerifyColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(canGenerifyColumnHeader.toCharArray(), 0, canGenerifyColumnHeader.length()));
-    getColumnModel().getColumn(CAN_GENERIFY_COLUMN).setMaxWidth(canGenerifyColumnWidth);
-    getColumnModel().getColumn(CAN_GENERIFY_COLUMN).setPreferredWidth(canGenerifyColumnWidth);
-    int willGenerifyColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(willGenerifyColumnHeader.toCharArray(), 0, willGenerifyColumnHeader.length()));
-    getColumnModel().getColumn(WILL_GENERIFY_COLUMN).setMaxWidth(willGenerifyColumnWidth);
-    getColumnModel().getColumn(WILL_GENERIFY_COLUMN).setPreferredWidth(willGenerifyColumnWidth);
     int canMakeAbstractColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(canMakeAbstractColumnHeader.toCharArray(), 0, canMakeAbstractColumnHeader.length()));
     getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setMaxWidth(canMakeAbstractColumnWidth);
     getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setPreferredWidth(canMakeAbstractColumnWidth);
@@ -210,9 +195,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
      return canGenerifyCheckBoxes[getRowForMember(memberInfo)];
   }
 
-  protected Boolean getwillGenerifyColumnValue(MemberInfo memberInfo) {
-     return willGenerifyCheckBoxes[getRowForMember(memberInfo)]; //todo : getRowForMember called too often
-  }
 
   protected ThreeValue getCanMakeAbstractColumnValue(MemberInfo memberInfo) {
      return canMakeAbstractCheckBoxes[getRowForMember(memberInfo)];
@@ -276,25 +258,18 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
         public int getColumnCount() {
             System.out.println("get column count (MyTableModel)");   // DEBUG
             if (myTableCopy.myAbstractEnabled) {
-                return (7);         //julien
+                return (4);         //julien
             }
-            else {
-                return (6); //julien
+            else {                              // TODO : simplify that
+                return (3); //julien
             }
         }
 
-        /*
-    public int getRowCount() {
-      return myTable.myMemberInfos.size();
-    }     */
 
         public Class getColumnClass(int columnIndex) {
             if (columnIndex == CHECKED_COLUMN
                     || columnIndex == ABSTRACT_COLUMN
-                    || columnIndex == DIRECT_ABSTRACT_PULLUP_COLUMN
-                    || columnIndex == CAN_GENERIFY_COLUMN
-                    || columnIndex == WILL_GENERIFY_COLUMN
-                    //|| columnIndex == CAN_MAKE_ABSTRACT_COLUMN
+
                     ) {     //julien
                 return Boolean.class;
             }
@@ -319,12 +294,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
                 case DISPLAY_NAME_COLUMN:
                     return memberInfo.getDisplayName();
 
-                case DIRECT_ABSTRACT_PULLUP_COLUMN:                                    //julien
-                    return myTableCopy.getDirectAbstractPullupColumnValue(memberInfo);
-                case CAN_GENERIFY_COLUMN:                                              //julien
-                    return myTableCopy.getCanGenerifyColumnValue(memberInfo);
-                case WILL_GENERIFY_COLUMN:                                             //julien
-                    return myTableCopy.getwillGenerifyColumnValue(memberInfo);
                 case CAN_MAKE_ABSTRACT_COLUMN:                                         //julien
                     return myTableCopy.getCanMakeAbstractColumnValue (memberInfo);
                 default:
@@ -340,16 +309,11 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
                     return myTableCopy.myAbstractColumnHeader;
                 case DISPLAY_NAME_COLUMN:
                     return DISPLAY_NAME_COLUMN_HEADER;
-                case DIRECT_ABSTRACT_PULLUP_COLUMN:           //julien
-                    return directAbstractPullupColumnHeader;
-                case CAN_GENERIFY_COLUMN:                     //julien
-                    return canGenerifyColumnHeader;
-                case WILL_GENERIFY_COLUMN:                    //julien
-                    return willGenerifyColumnHeader;
+
                 case CAN_MAKE_ABSTRACT_COLUMN:                //julien
                     return canMakeAbstractColumnHeader;
                 default:
-                    throw new RuntimeException("Incorrect column index");
+                    throw new RuntimeException("Incorrect column index: " + column);
             }
         }
 
@@ -361,12 +325,7 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
                             && myTableCopy.getCanMakeAbstractColumnValue(m) != ThreeValue.No; // todo: does that work?
                 case ABSTRACT_COLUMN:
                     return myTableCopy.isAbstractColumnEditable(rowIndex);
-                case DIRECT_ABSTRACT_PULLUP_COLUMN:
-                    return false ;
-                case CAN_GENERIFY_COLUMN:
-                    return false ;
-                case WILL_GENERIFY_COLUMN:
-                    return false ;
+
                 case CAN_MAKE_ABSTRACT_COLUMN:
                     return false;
             }
@@ -380,18 +339,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
             }
             else if (columnIndex == ABSTRACT_COLUMN) {
                 myTableCopy.myMemberInfos.get(rowIndex).setToAbstract(((Boolean)aValue).booleanValue());
-            }
-            else if (columnIndex == DIRECT_ABSTRACT_PULLUP_COLUMN){
-                myTableCopy.directAbstractPullupCheckBoxes[rowIndex] = ((Boolean)aValue).booleanValue();
-
-            }
-            else if (columnIndex == CAN_GENERIFY_COLUMN){
-                myTableCopy.canGenerifyCheckBoxes[rowIndex] = ((Boolean)aValue).booleanValue();
-
-            }
-            else if (columnIndex == WILL_GENERIFY_COLUMN){
-                myTableCopy.willGenerifyCheckBoxes[rowIndex] = ((Boolean)aValue).booleanValue();
-
             }
             // TODO : need to add a case for "can make abstract" columns which is not editable?
 

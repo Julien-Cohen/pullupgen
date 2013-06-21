@@ -90,9 +90,21 @@ public class PullUpGenDialog extends RefactoringDialog {
     setTitle(JavaPullUpGenHandler.REFACTORING_NAME);
 
     init();
+
+    // Julien
+    fillAllAnalyses();
+
+
   }
 
-  @Nullable
+    private void fillAllAnalyses() {
+        fillAllCanGenFields() ;
+        fillAllDirectAbstractPullupFields() ;
+        fillAllWillGenFields() ;           // J  (to be done in that order)
+        fillAllCanMakeAbstractFields();    // J  (to be done in that order because of data dependancy)
+    }
+
+    @Nullable
   public PsiClass getSuperClass() {
     if (myClassCombo != null) {
       return (PsiClass) myClassCombo.getSelectedItem();
@@ -162,7 +174,12 @@ public class PullUpGenDialog extends RefactoringDialog {
             myMemberSelectionPanel.getTable().setMemberInfos(myMemberInfos);
             myMemberSelectionPanel.getTable().fireExternalDataChange();
           }
+
+          // Julien: Update sister classes and analyses
           setSisterClassDisplay(); // Julien
+          fillAllAnalyses();       // Julien
+          myMemberSelectionPanel.repaint();
+
         }
       }
     });
@@ -182,7 +199,7 @@ public class PullUpGenDialog extends RefactoringDialog {
     sisclassListLabel.setLabelFor(mySisterClassList);
     sisgbConstraints.gridy++;   // increment the target position before adding
     panel.add(mySisterClassList, sisgbConstraints);
-    setSisterClassDisplay(); // cannot be done musch earlier because myClassCombo must be initialized.
+    setSisterClassDisplay(); // cannot be done much earlier because myClassCombo must be initialized.
     return panel;
   }
 
@@ -242,7 +259,7 @@ public class PullUpGenDialog extends RefactoringDialog {
   // The center panel contains the member selection panel and the javadoc panel
   protected JComponent createCenterPanel() {
     JPanel panel = new JPanel(new BorderLayout());
-    myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
+    //myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
     myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
     myMemberInfoModel = new MyMemberInfoModel();
     myMemberInfoModel.memberInfoChanged(new MemberInfoChange<PsiMember, MemberInfo>(myMemberInfos));

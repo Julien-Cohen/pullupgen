@@ -295,14 +295,7 @@ public class GenAnalysisUtils {
 
 
 
-    /* ------ Lookup for subclasses and sister classes ------ */
-
-
-    // direct subclasses of superclass
-    static Collection <PsiClass> findSisterClasses(PsiClass aClass){
-      SearchScope scope = GlobalSearchScopes.directoryScope(((PsiJavaFile) aClass.getContainingFile()).getContainingDirectory(), false) ;
-      return ClassInheritorsSearch.search(aClass.getSuperClass(), scope,false).findAll(); // use project scope  / false means direct inheritance
-    }
+    /* ------ Lookup for subclasses  ------ */
 
 
     // direct subclasses

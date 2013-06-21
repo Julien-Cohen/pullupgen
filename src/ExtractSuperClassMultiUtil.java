@@ -65,7 +65,7 @@ public class ExtractSuperClassMultiUtil {
                                                 final boolean useGenericUnification)
     throws IncorrectOperationException {    
       //PsiClass[] a = { subclass } ;
-      final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findSisterClasses(subclass);  // rem : in extract super-class, we are only intereste in classes at the sam level For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
+      final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findDirectSubClasses(subclass.getSuperClass());  // rem : in extract super-class, we are only intereste in classes at the sam level For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
       final String packageName = ((PsiJavaFile)subclass.getContainingFile()).getPackageName();
 
       final Collection<PsiClass> selectedSisterClasses = new Vector();

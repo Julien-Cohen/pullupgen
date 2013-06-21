@@ -147,10 +147,6 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
     }
 
     final PullUpGenDialog dialog = new PullUpGenDialog(project, aClass, bases, memberInfoStorage, this);
-    dialog.fillAllCanGenFields() ;                  // J
-    dialog.fillAllDirectAbstractPullupFields() ;    // J
-    dialog.fillAllWillGenFields() ;           // J  (to be done in that order)
-    dialog.fillAllCanMakeAbstractFields();    // J  (to be done in that order because of data dependancy)
 
 
     dialog.show();
