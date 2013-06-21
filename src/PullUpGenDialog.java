@@ -69,9 +69,8 @@ public class PullUpGenDialog extends RefactoringDialog {
   private static final String PULL_UP_STATISTICS_KEY = "pull.up##";
 
   //Julien : to display the list of sister classes.
-  Collection<PsiClass> mySisterClasses ;
-  // JComboBox mySisterClassCombo;
-  JList mySisterClassCombo;
+
+  JList mySisterClassList;
 
 //  static CustomMemberInfo convert (MemberInfo i){}
     
@@ -87,13 +86,9 @@ public class PullUpGenDialog extends RefactoringDialog {
     myMemberInfos = myMemberInfoStorage.getClassMemberInfos(aClass);
     myCallback = callback;
 
-    try {  mySisterClasses = GenAnalysisUtils.findSubClassesWithCompatibleMember(myMemberInfos.get(0), superClasses.get(0));
-     }
-    catch (GenAnalysisUtils.MemberNotImplemented e) { mySisterClasses = new ArrayList() ;}
-      catch (GenAnalysisUtils.AmbiguousOverloading e )   { mySisterClasses = new ArrayList() ;}   // TODO : fix-me
 
     setTitle(JavaPullUpGenHandler.REFACTORING_NAME);
-    //System.out.println("creation Gen Dialog");
+
     init();
   }
 
@@ -131,6 +126,7 @@ public class PullUpGenDialog extends RefactoringDialog {
 
   // The north panel contains the selector for the target super class (but not the member selection panel).
   // I (Julien) add the sister classes panel.
+  @Override
   protected JComponent createNorthPanel() {
     JPanel panel = new JPanel();
 
@@ -166,31 +162,36 @@ public class PullUpGenDialog extends RefactoringDialog {
             myMemberSelectionPanel.getTable().setMemberInfos(myMemberInfos);
             myMemberSelectionPanel.getTable().fireExternalDataChange();
           }
+          setSisterClassDisplay(); // Julien
         }
       }
     });
     gbConstraints.gridy++;
     panel.add(myClassCombo, gbConstraints);
 
+
     // new (julien)    (based on the handling of myClassCombo)
     GridBagConstraints sisgbConstraints = (GridBagConstraints) gbConstraints.clone();
-    final JLabel sisclassComboLabel = new JLabel();
-    sisgbConstraints.gridy=0; // increment the target position before adding
-    sisgbConstraints.gridx=1; // increment the target position before adding
-    panel.add(sisclassComboLabel, sisgbConstraints);
-    //mySisterClassCombo = new JComboBox(mySisterClasses.toArray());  // from (1)
-    mySisterClassCombo = new JBList(mySisterClasses.toArray());  // from (1)
-    //mySisterClassCombo.setRenderer(new ClassCellRenderer(mySisterClassCombo.getRenderer()));  // from (2)
-    mySisterClassCombo.setCellRenderer(new ClassCellRenderer(mySisterClassCombo.getCellRenderer()));  // from (2)
-    sisclassComboLabel.setText("Other classes to be modified:");       // from (3)
-    sisclassComboLabel.setLabelFor(mySisterClassCombo);                      // from (4)
+    final JLabel sisclassListLabel = new JLabel();
+    sisgbConstraints.gridy=0;
+    sisgbConstraints.gridx=1;
+    panel.add(sisclassListLabel, sisgbConstraints);
+    mySisterClassList = new JBList();
+    mySisterClassList.setCellRenderer(new ClassCellRenderer(mySisterClassList.getCellRenderer()));  // from (2)
+    sisclassListLabel.setText("Other classes to be modified:");
+    sisclassListLabel.setLabelFor(mySisterClassList);
     sisgbConstraints.gridy++;   // increment the target position before adding
-    panel.add(mySisterClassCombo, sisgbConstraints);
-
+    panel.add(mySisterClassList, sisgbConstraints);
+    setSisterClassDisplay(); // cannot be done musch earlier because myClassCombo must be initialized.
     return panel;
   }
 
-  private PsiClass getSuperClassPreselection() {
+    private void setSisterClassDisplay() {
+        Collection<PsiClass> mySisterClasses = GenAnalysisUtils.findDirectSubClasses(getSuperClass()); // getSuperClass can be invoked only after myClassCombo has been initialized.
+        mySisterClassList.setListData(mySisterClasses.toArray());
+    }
+
+    private PsiClass getSuperClassPreselection() {
     PsiClass preselection = RefactoringHierarchyUtil.getNearestBaseClass(myClass, false);
 
     final String statKey = PULL_UP_STATISTICS_KEY + myClass.getQualifiedName();
