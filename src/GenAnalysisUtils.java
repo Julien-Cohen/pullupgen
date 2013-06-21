@@ -180,7 +180,7 @@ public class GenAnalysisUtils {
     @Deprecated    // use sameMethods instead
     static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
         final Collection <PsiClass> classes = findDirectSubClasses(superClass);
-        //final Collection <PsiClass> result = new LinkedList<PsiClass>();
+
         for (PsiClass c: classes){
             if (!hasMethodWithSameType(m, c))  {
                 if (c.isInterface() || c.hasModifierProperty(PsiModifier.ABSTRACT)) { //the method is not found but it may be in all subclasses, which would be ok.
@@ -510,10 +510,7 @@ public class GenAnalysisUtils {
                     // TODO : check that the method is not already overriding a method.
                     // TODO: There might be also a problem when introducing the method in super class introduces a nasty overloading.
                     if (hasParameterCompatibleMethod((PsiMethod)member.getMember(),superclass) > 0) return null ; // This avoids a possibly problematic overloading in super class.
-                    /*if (isinterface(superclass)) {
-                        if (! allPublic(res)) return null ;
-                    }
-                    else  {if (onePrivate(res)) return null;}*/
+
                     return res ;
           }
           catch (AmbiguousOverloading e) {

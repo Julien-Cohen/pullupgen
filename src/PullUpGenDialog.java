@@ -97,13 +97,6 @@ public class PullUpGenDialog extends RefactoringDialog {
 
   }
 
-    private void fillAllAnalyses() {
-        fillAllCanGenFields() ;
-        fillAllDirectAbstractPullupFields() ;
-        fillAllWillGenFields() ;           // J  (to be done in that order)
-        fillAllCanMakeAbstractFields();    // J  (to be done in that order because of data dependancy)
-    }
-
     @Nullable
   public PsiClass getSuperClass() {
     if (myClassCombo != null) {
@@ -259,7 +252,6 @@ public class PullUpGenDialog extends RefactoringDialog {
   // The center panel contains the member selection panel and the javadoc panel
   protected JComponent createCenterPanel() {
     JPanel panel = new JPanel(new BorderLayout());
-    //myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
     myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), myMemberInfos, RefactoringBundle.message("make.abstract")); /* Julien : use custom panel for abstract column */
     myMemberInfoModel = new MyMemberInfoModel();
     myMemberInfoModel.memberInfoChanged(new MemberInfoChange<PsiMember, MemberInfo>(myMemberInfos));
@@ -370,17 +362,10 @@ public class PullUpGenDialog extends RefactoringDialog {
     }
   }
 
-  void fillAllCanGenFields(){
+    void fillAllAnalyses() {
         myMemberSelectionPanel.getTable().fillAllCanGenMembers(getSuperClass());
-  }
-  void fillAllDirectAbstractPullupFields(){
         myMemberSelectionPanel.getTable().fillAllDirectAbstractPullupFields(getSuperClass());
-  }
-  void fillAllWillGenFields(){
-        myMemberSelectionPanel.getTable().fillAllWillGenFields();
-  }
-  void fillAllCanMakeAbstractFields(){
-        myMemberSelectionPanel.getTable().fillAllCanMakeAbstractFields();
+        myMemberSelectionPanel.getTable().fillAllCanMakeAbstractFields(); // J  (to be done in that order because of data dependancy)
   }
 
 

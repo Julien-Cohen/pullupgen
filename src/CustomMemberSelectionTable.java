@@ -44,12 +44,7 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
 //public class CustomMemberSelectionTable extends AbstractMemberSelectionTable<PsiMember, MemberInfo> {
 
   protected final Boolean[] directAbstractPullupCheckBoxes;
-
-
   protected final Boolean[] canGenerifyCheckBoxes ;
-
-
-  protected final Boolean[] willGenerifyCheckBoxes ;
 
 
   protected static final int CAN_MAKE_ABSTRACT_COLUMN = 3; // added Julien
@@ -67,7 +62,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
     final int size = memberInfos.size();
     directAbstractPullupCheckBoxes = new Boolean[size];        // j
     canGenerifyCheckBoxes = new Boolean[size];                 // j
-    willGenerifyCheckBoxes = new Boolean[size];                // j
     canMakeAbstractCheckBoxes = new ThreeValue[size];          // j
     GenTableModel t = new GenTableModel (this); //julien
     setModel(t);                                // julien    (this is problematic)
@@ -130,11 +124,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
         return result;
   }
 
-  // warning, need to initalize needGen and canGen fields before invoking that method
-  void fillWillGenField(MemberInfo member) {
-        boolean b = !getDirectAbstractPullupColumnValue(member) && getCanGenerifyColumnValue(member);
-        setWillGenerifyColumnValue(member,b );
-  }
 
   void fillCanMakeAbstractField(MemberInfo member) {
       //TODO warning : check the dependencies wetween the various informations.
@@ -145,11 +134,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   }
 
 
-  /* --- Iterators for filling --- */
-
-  void fillAllWillGenFields(){
-        for (MemberInfo m : myMemberInfos) fillWillGenField(m);
-  }
 
   void fillAllCanGenMembers(PsiClass sup){
       for (MemberInfo m : myMemberInfos) fillCanGenMember(m, sup);
@@ -195,7 +179,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
      return canGenerifyCheckBoxes[getRowForMember(memberInfo)];
   }
 
-
   protected ThreeValue getCanMakeAbstractColumnValue(MemberInfo memberInfo) {
      return canMakeAbstractCheckBoxes[getRowForMember(memberInfo)];
   }
@@ -213,10 +196,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
 
   protected void setDirectAbstractPullupColumnValue(MemberInfo memberInfo, boolean b) {
      directAbstractPullupCheckBoxes[getRowForMember(memberInfo)] = b ;
-  }
-
-  protected void setWillGenerifyColumnValue(MemberInfo memberInfo, boolean b) {
-     willGenerifyCheckBoxes[getRowForMember(memberInfo)] = b ;
   }
 
 
