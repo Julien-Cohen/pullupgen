@@ -87,7 +87,7 @@ public class PullUpGenDialog extends RefactoringDialog {
     myMemberInfos = myMemberInfoStorage.getClassMemberInfos(aClass);
     myCallback = callback;
 
-    try {  mySisterClasses = GenAnalysisUtils.findSubClassesWithCompatibleMember(myMemberInfos.get(0), superClasses.get(0)); // TODO : fix-me (for testing display, should use sister classes instead)
+    try {  mySisterClasses = GenAnalysisUtils.findSubClassesWithCompatibleMember(myMemberInfos.get(0), superClasses.get(0));
      }
     catch (GenAnalysisUtils.MemberNotImplemented e) { mySisterClasses = new ArrayList() ;}
       catch (GenAnalysisUtils.AmbiguousOverloading e )   { mySisterClasses = new ArrayList() ;}   // TODO : fix-me
@@ -182,7 +182,7 @@ public class PullUpGenDialog extends RefactoringDialog {
     mySisterClassCombo = new JBList(mySisterClasses.toArray());  // from (1)
     //mySisterClassCombo.setRenderer(new ClassCellRenderer(mySisterClassCombo.getRenderer()));  // from (2)
     mySisterClassCombo.setCellRenderer(new ClassCellRenderer(mySisterClassCombo.getCellRenderer()));  // from (2)
-    sisclassComboLabel.setText("Sister classes (to be modified):");       // from (3)
+    sisclassComboLabel.setText("Other classes to be modified:");       // from (3)
     sisclassComboLabel.setLabelFor(mySisterClassCombo);                      // from (4)
     sisgbConstraints.gridy++;   // increment the target position before adding
     panel.add(mySisterClassCombo, sisgbConstraints);

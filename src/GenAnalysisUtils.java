@@ -25,7 +25,7 @@ public class GenAnalysisUtils {
     /** DEFINITIONS :
      * Two types are anti-unifiable when they are instances of more general type (with type variables).
      * Two methods are compatible when they have the same name and their types (return type + parameter types) are anti-unifiable.
-     * The sister classes of a class are the direct (or indirect?) subclasses of its direct superclass.
+     * The sister classes of a class are the direct subclasses of its direct superclass.
      */
 
 
@@ -179,7 +179,7 @@ public class GenAnalysisUtils {
 
     @Deprecated    // use sameMethods instead
     static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
-        final Collection <PsiClass> classes = findAllSubClasses(superClass);
+        final Collection <PsiClass> classes = findDirectSubClasses(superClass);
         //final Collection <PsiClass> result = new LinkedList<PsiClass>();
         for (PsiClass c: classes){
             if (!hasMethodWithSameType(m, c))  {
@@ -304,10 +304,6 @@ public class GenAnalysisUtils {
       return ClassInheritorsSearch.search(aClass.getSuperClass(), scope,false).findAll(); // use project scope  / false means direct inheritance
     }
 
-    // direct AND indirect subclasses
-    static Collection<PsiClass> findAllSubClasses(PsiClass superClass) {
-        return ClassInheritorsSearch.search(superClass, true).findAll();     // use default scope
-    }
 
     // direct subclasses
     static Collection<PsiClass> findDirectSubClasses(PsiClass superClass) {
@@ -334,54 +330,43 @@ public class GenAnalysisUtils {
         PsiMember m = mem.getMember();
         if (m instanceof PsiMethod){
             boolean mustBePublic = superClass.isInterface()  ;
-            return findSubClassesWithCompatibleMethod((PsiMethod) m, superClass, mustBePublic);   // can throw MemberNotImplemented exception but cannot be null
+            return findDirectSubClassesWithCompatibleMethod((PsiMethod) m, superClass, mustBePublic);   // can throw MemberNotImplemented exception but cannot be null
         }
 
-        else if (m instanceof PsiClass && memberClassComesFromImplements(mem)) { return findDirectSubClassesWithImplements((PsiClass)m, superClass);}
-        else if (m instanceof PsiClass) { return null ; } // TODO : check that
-        else if (m instanceof PsiField) { throw new IncorrectOperationException("implement me : pull up field");}
-        else throw new IncorrectOperationException("cannot handle this kind of member:" + m);
+        else if (m instanceof PsiClass && memberClassComesFromImplements(mem)) {
+                return findDirectSubClassesWithImplements((PsiClass)m, superClass);}
+
+        else if (m instanceof PsiClass) {
+                return null ; } // TODO : check that
+
+        else if (m instanceof PsiField) {
+                throw new IncorrectOperationException("implement me : pull up field");}
+
+        else    throw new IncorrectOperationException("cannot handle this kind of member:" + m);
     }
 
-    // Must find an implementation of the method on all the branches of the tree of subclasses.
+    // Must find an implementation in each direct subclass.
     // Otherwise: throws an exception.
     @NotNull
-    static Collection<PsiClass> findSubClassesWithCompatibleMethod(PsiMethod m, PsiClass superClass, boolean checkpublic)
+    static Collection<PsiClass> findDirectSubClassesWithCompatibleMethod(PsiMethod m, PsiClass superClass, boolean checkpublic)
             throws AmbiguousOverloading, MemberNotImplemented {
 
         final Collection<PsiClass> res = new LinkedList<PsiClass>();
-        final Collection <PsiClass> directSubClasses = findDirectSubClasses(superClass); // TODO : should limit the scope of search
-
-
-//      System.out.println("considered subclasses :" + directSubClasses); // debug
+        final Collection <PsiClass> directSubClasses = findDirectSubClasses(superClass); // TODO : limit the scope of search
 
         for (PsiClass c: directSubClasses){
             final int count = hasCompatibleMethod(m, c, checkpublic);
-//          System.out.println("for " + c + " count = " + count); // debug
             if (count>1) throw new AmbiguousOverloading(m,c);
-            if (count==1)  res.add(c); // the method is found       // TODO : check that there is only one anti-unifiable method
+            if (count==1)  res.add(c); // the method is found
 
-            else { // no compatible method. Two cases.
+            else { // no compatible method.
 
-                if (c.isInterface() || c.hasModifierProperty(PsiModifier.ABSTRACT)) {
-                    //the method is not found but it may be in all subclasses, which would be ok.
-
-                    try {
-                        Collection<PsiClass> localresult = findSubClassesWithCompatibleMethod(m, c, checkpublic);
-                        res.addAll(localresult);
-                    }
-                    catch (MemberNotImplemented e) { throw e ;}
-                }
-                else {
-                    // the method is not found, and since that class is concrete, pull up would introduce an error.
+                    // The method is not found.
+                    // If that class is concrete, pull up would introduce an error.
+                    // If that class is abstract and the method is implemented in subclasses, the user has to first make a pull-up to that abstract class.
                     throw new MemberNotImplemented(m,c);
-
-                }
-
             }
         }
-
-
         return res;
     }
 
