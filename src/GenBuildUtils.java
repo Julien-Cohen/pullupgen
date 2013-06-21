@@ -80,16 +80,17 @@ class GenBuildUtils {
     }
 
     static PsiJavaCodeReferenceElement findReferenceToSuperclass(PsiClass c, PsiClass s){
-      if (s.isInterface()){
+        final String superName = s.getQualifiedName();
+        if (s.isInterface()){
         for (PsiJavaCodeReferenceElement elem : c.getImplementsList().getReferenceElements()) {
-          if ((elem.getQualifiedName()).equals(s.getQualifiedName())) return elem ;
+          if ((elem.getQualifiedName()).equals(superName)) return elem ;
         }
       }
-      else {
-        for (PsiJavaCodeReferenceElement elem : c.getExtendsList().getReferenceElements()) {
-          if ((elem.getQualifiedName()).equals(s.getQualifiedName())) return elem ;
+      //else {
+        for (PsiJavaCodeReferenceElement elem : c.getExtendsList().getReferenceElements()) {  // for classes and interfaces
+          if ((elem.getQualifiedName()).equals(superName)) return elem ;
         }
-      }
+      //}
       throw new IncorrectOperationException("Internal error: Super class extends/implement statement not found.");
         
     }

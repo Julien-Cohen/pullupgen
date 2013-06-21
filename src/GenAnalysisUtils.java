@@ -24,8 +24,8 @@ public class GenAnalysisUtils {
 
     /** DEFINITIONS :
      * Two types are anti-unifiable when they are instances of more general type (with type variables).
-     * Two methods are compatible when they have the same name and their type (return type + parameter types) are anti-unifiable.
-     * The sister classes of a class c are the direct (or indirect?) subclasses of the direct superclass (or interface?) of m.
+     * Two methods are compatible when they have the same name and their types (return type + parameter types) are anti-unifiable.
+     * The sister classes of a class are the direct (or indirect?) subclasses of its direct superclass.
      */
 
 
@@ -333,7 +333,8 @@ public class GenAnalysisUtils {
             throws MemberNotImplemented, AmbiguousOverloading {
         PsiMember m = mem.getMember();
         if (m instanceof PsiMethod){
-            return findSubClassesWithCompatibleMethod((PsiMethod) m, superClass, false);   // can throw MemberNotImplemented exception but cannot be null
+            boolean mustBePublic = superClass.isInterface()  ;
+            return findSubClassesWithCompatibleMethod((PsiMethod) m, superClass, mustBePublic);   // can throw MemberNotImplemented exception but cannot be null
         }
 
         else if (m instanceof PsiClass && memberClassComesFromImplements(mem)) { return findDirectSubClassesWithImplements((PsiClass)m, superClass);}
@@ -401,14 +402,6 @@ public class GenAnalysisUtils {
         return sisterMethods;
     }
 
-    /* see definition for compatibility at top of this file */
-    static int hasCompatiblePublicMethod(PsiMethod m, PsiClass c) {
-        int count = 0;
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if (m_tmp.hasModifierProperty("public") && antiUnifiable(m, m_tmp)) count++;
-        }
-        return count;
-    }
 
 
     /* see def for compatibility at beginiing of this file : same name + anti-unifiable */
@@ -455,10 +448,21 @@ public class GenAnalysisUtils {
         else return  hasCompatiblePublicMethod(m, c);
     }
 
+
+
+    /* see definition for compatibility at top of this file */
+    static int hasCompatiblePublicMethod(PsiMethod m, PsiClass c) {
+        int count = 0;
+        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
+            if (m_tmp.hasModifierProperty("public") && antiUnifiable(m, m_tmp)) count++;
+        }
+        return count;
+    }
+
     static int hasCompatibleMethod(PsiMethod m, PsiClass c) {
         int count = 0;
         for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if (antiUnifiable(m, m_tmp)) count++;
+            if ( (!m_tmp.hasModifierProperty("private")) && antiUnifiable(m, m_tmp)) count++;
         }
         return count;
     }
@@ -528,6 +532,10 @@ public class GenAnalysisUtils {
                     // TODO : check that the method is not already overriding a method.
                     // TODO: There might be also a problem when introducing the method in super class introduces a nasty overloading.
                     if (hasParameterCompatibleMethod((PsiMethod)member.getMember(),superclass) > 0) return null ; // This avoids a possibly problematic overloading in super class.
+                    /*if (isinterface(superclass)) {
+                        if (! allPublic(res)) return null ;
+                    }
+                    else  {if (onePrivate(res)) return null;}*/
                     return res ;
           }
           catch (AmbiguousOverloading e) {
