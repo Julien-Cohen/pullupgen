@@ -291,8 +291,8 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
 
           // 3) build the abstract method
-          RefactoringUtil.abstractizeMethod(myTargetSuperClass, methodCopy);
-          //System.out.println("Copy of selected method created and abstracted: " + methodCopy) ;
+            RefactoringUtil.makeMethodAbstract(myTargetSuperClass, methodCopy);
+            //System.out.println("Copy of selected method created and abstracted: " + methodCopy) ;
 
 
           // 4) generify the abstract method
