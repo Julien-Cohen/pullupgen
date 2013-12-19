@@ -171,8 +171,8 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
     }, MethodDuplicatesHandler.REFACTORING_NAME, true, myProject);
   }
 
-  protected String getCommandName() {
-    return RefactoringBundle.message("pullUp.command", UsageViewUtil.getDescriptiveName(mySourceClass));
+  protected String getCommandName() { // changed to be compat with both IDEA 12 and 13
+    return RefactoringBundle.message("pullUp.command", UsageViewUtil.getLongName(mySourceClass));
   }
 
   public void moveMembersToBase()
