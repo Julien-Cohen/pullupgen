@@ -191,7 +191,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
   }
 
   private String getCommandName(final PsiClass subclass, String newName) {
-    return RefactoringBundle.message("extract.superclass.command.name", newName, UsageViewUtil.getDescriptiveName(subclass));
+    return RefactoringBundle.message("extract.superclass.command.name", newName, UsageViewUtil.getLongName(subclass));
   }
 
   public boolean isEnabledOnElements(PsiElement[] elements) {
