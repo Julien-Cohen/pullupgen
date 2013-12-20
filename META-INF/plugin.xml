@@ -3,7 +3,7 @@
   <description><![CDATA[
      <p> Extends <i>Pull Members Up</i> refactoring to consider methods with different types in different classes to be pulled-up as an abstract method with generic types.</p> <p> Also provides an extension of the <i>Extract Superclass</i> refactoring to support several classes simulteanously.</p>
             ]]></description>
-  <version>0.2c</version>
+  <version>0.3a</version>
   <vendor>Julien Cohen (Ascola team)</vendor>
   <idea-version since-build="129.1359"/>
 
@@ -16,11 +16,12 @@
   </project-components>
   <change-notes>
       <![CDATA[<p> <ul>
+            <li><b>0.3</b> Improved GUI for pull-up-gen operation.</li>
             <li><b>0.2</b> Introduce new type parameters only if needed.</li>
             <li><b>0.1</b> First release, with <ul>
                 <li>pull-up method with generics and </li><li> extract superclass for several classes (automatically selects classes with methods that has been specified). </li></ul></li>
             </ul>    </p>
-            <p> Known bugs (pull up):
+            <p> Known bugs (in pull-up-gen v0.2):
                  <ul>
                     <li> Fails when incoherent type parameters between a class and its superclass.</li>
                     <li> Fails when several abstract classes in the considered hierarchy. </li>
