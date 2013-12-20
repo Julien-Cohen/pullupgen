@@ -64,8 +64,7 @@ public class ExtractSuperClassMultiUtil {
                                                 final DocCommentPolicy javaDocPolicy,
                                                 final boolean useGenericUnification)
     throws IncorrectOperationException {    
-      //PsiClass[] a = { subclass } ;
-      final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findDirectSubClasses(subclass.getSuperClass());  // rem : in extract super-class, we are only intereste in classes at the sam level For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
+      final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findDirectSubClassesInDirectory(subclass.getSuperClass(), GenAnalysisUtils.getContainingDirectory(subclass));  // rem : in extract super-class, we are only interested in classes at the same level. For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
       final String packageName = ((PsiJavaFile)subclass.getContainingFile()).getPackageName();
 
       final Collection<PsiClass> selectedSisterClasses = new Vector();
@@ -87,9 +86,10 @@ public class ExtractSuperClassMultiUtil {
         }
       }
       
-      if (selectedSisterClasses.isEmpty()) {throw new IncorrectOperationException ("Internal error: no convenient class found (in extractSuperClassMulti).");}
-      //System.out.println(selectedSisterClasses);  // debug
-      //a = (PsiClass[]) selectedSisterClasses.toArray(a);
+      if (selectedSisterClasses.isEmpty()) {
+          throw new IncorrectOperationException ("Internal error: no convenient class found (in extractSuperClassMulti).");
+      }
+
       
       return extractSuperClass(project, targetDirectory, superclassName, selectedSisterClasses, selectedMemberInfos, javaDocPolicy, useGenericUnification);
   }
@@ -111,6 +111,7 @@ public class ExtractSuperClassMultiUtil {
     final PsiModifierList superClassModifierList = myfreshsuperclass.getModifierList();
     assert superClassModifierList != null;
     superClassModifierList.setModifierProperty(PsiModifier.FINAL, false);
+    superClassModifierList.setModifierProperty(PsiModifier.ABSTRACT, true);
 
 
     // 2 : make the correct 'extends' for the new class

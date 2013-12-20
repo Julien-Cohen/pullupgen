@@ -179,7 +179,7 @@ public class GenerifyUtils {
     // for extract super class
     static Collection <PsiClass> computeSisterClasses(PsiClass aClass){
 
-      SearchScope scope = GlobalSearchScopes.directoryScope(((PsiJavaFile)aClass.getContainingFile()).getContainingDirectory(), false) ;
+      SearchScope scope = GenAnalysisUtils.getDirScope(aClass);
         
       return ClassInheritorsSearch.search(aClass.getSuperClass(), scope,false).findAll(); // With that, get all the classes in the project (all packages)
 

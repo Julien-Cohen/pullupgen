@@ -1,6 +1,6 @@
 import com.intellij.psi.*;
+import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.GlobalSearchScopes;
-import com.intellij.psi.search.SearchScope;
 import com.intellij.psi.search.searches.ClassInheritorsSearch;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.util.IncorrectOperationException;
@@ -196,6 +196,14 @@ public class GenAnalysisUtils {
         return true;
     }
 
+    public static GlobalSearchScope getDirScope(PsiClass aClass) {
+        return GlobalSearchScopes.directoryScope(getContainingDirectory(aClass), false);
+    }
+
+    public static PsiDirectory getContainingDirectory(PsiClass aClass) {
+        return ((PsiJavaFile) aClass.getContainingFile()).getContainingDirectory();
+    }
+
 
 
 
@@ -298,9 +306,13 @@ public class GenAnalysisUtils {
     /* ------ Lookup for subclasses  ------ */
 
 
-    // direct subclasses
+    // direct subclasses  (use findDirectSubClassesInPackage instead)
+    @Deprecated
     static Collection<PsiClass> findDirectSubClasses(PsiClass superClass) {
         return ClassInheritorsSearch.search(superClass, false).findAll();     // use default scope
+    }
+    static Collection<PsiClass> findDirectSubClassesInDirectory(PsiClass superClass, PsiDirectory directory) {
+        return ClassInheritorsSearch.search(superClass, GlobalSearchScopes.directoryScope(directory, false), false).findAll();
     }
 
 
