@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2011 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,25 +18,24 @@
  * Extended by Julien Cohen (Ascola team, Univ. Nantes), Feb/March 2012.
  * Copyright 2012 Université de Nantes for those contributions.            
  */
-
+package com.intellij.refactoring.memberPullUp;
 import com.intellij.lang.refactoring.RefactoringSupportProvider;
 import com.intellij.refactoring.RefactoringActionHandler;
-import com.intellij.refactoring.actions.ExtractSuperActionBase;
+import com.intellij.refactoring.actions.BasePlatformRefactoringAction;
 import org.jetbrains.annotations.NotNull;
 
-
-
-public class ExtractSuperClassMultiGenAction extends ExtractSuperActionBase {
-
-    public ExtractSuperClassMultiGenAction() {
+public class PullUpGenAction extends BasePlatformRefactoringAction {
+  public PullUpGenAction() {
     setInjectedContext(true);
   }
 
-  @Override
-  protected RefactoringActionHandler getRefactoringHandler(@NotNull RefactoringSupportProvider supportProvider) {
-      ExtractSuperclassMultiHandler h = new ExtractSuperclassMultiHandler();
-      h.myUseGenericUnification = true ;   // this asks for generic unification: methods with the same name but different types can be considered to override a same method (with a generic type).
-      return h;
+  public boolean isAvailableInEditorOnly() {
+    return false;
   }
 
+  @Override
+  protected RefactoringActionHandler getRefactoringHandler(@NotNull RefactoringSupportProvider provider) {
+
+    return new JavaPullUpGenHandler() ;
+  }
 }

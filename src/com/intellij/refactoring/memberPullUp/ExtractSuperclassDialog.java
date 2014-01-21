@@ -19,6 +19,7 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
+package com.intellij.refactoring.memberPullUp; // (J) : to be able to acces protected members of PullUpDialogBase (myMemberSelectionPanel).
 
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
@@ -31,7 +32,6 @@ import com.intellij.refactoring.classMembers.MemberInfoChange;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
 import com.intellij.refactoring.extractSuperclass.ExtractSuperBaseProcessor;
 import com.intellij.refactoring.extractSuperclass.JavaExtractSuperBaseDialog;
-import com.intellij.refactoring.memberPullUp.PullUpHelper;
 import com.intellij.refactoring.ui.MemberSelectionPanel;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.classMembers.InterfaceContainmentVerifier;
@@ -46,7 +46,7 @@ import java.util.List;
 class ExtractSuperclassDialog extends JavaExtractSuperBaseDialog {
   private final InterfaceContainmentVerifier myContainmentVerifier = new InterfaceContainmentVerifier() {
     public boolean checkedInterfacesContain(PsiMethod psiMethod) {
-      return PullUpHelper.checkedInterfacesContain(myMemberInfos, psiMethod);
+      return PullUpProcessor.checkedInterfacesContain(myMemberInfos, psiMethod);
     }
   };
 

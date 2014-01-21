@@ -1,10 +1,5 @@
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-
-
-
 /*
- * Copyright 2000-2011 JetBrains s.r.o.
+ * Copyright 2000-2009 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,23 +19,21 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
+package com.intellij.refactoring.memberPullUp;
+
 import com.intellij.lang.refactoring.RefactoringSupportProvider;
 import com.intellij.refactoring.RefactoringActionHandler;
-import com.intellij.refactoring.actions.BasePlatformRefactoringAction;
+import com.intellij.refactoring.actions.ExtractSuperActionBase;
 import org.jetbrains.annotations.NotNull;
 
-public class PullUpGenAction extends BasePlatformRefactoringAction {
-  public PullUpGenAction() {
+public class ExtractSuperClassMultiAction extends ExtractSuperActionBase {
+  
+  public ExtractSuperClassMultiAction() {
     setInjectedContext(true);
   }
 
-  public boolean isAvailableInEditorOnly() {
-    return false;
-  }
-
   @Override
-  protected RefactoringActionHandler getRefactoringHandler(@NotNull RefactoringSupportProvider provider) {
-
-    return new JavaPullUpGenHandler() ;
+  protected RefactoringActionHandler getRefactoringHandler(@NotNull RefactoringSupportProvider supportProvider) {
+    return new ExtractSuperclassMultiHandler();
   }
 }

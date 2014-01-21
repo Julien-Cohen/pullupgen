@@ -20,6 +20,8 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
+package com.intellij.refactoring.memberPullUp; // (J) : to be able to acces protected members of PullUpDialogBase (myMemberSelectionPanel).
+
 import com.intellij.codeInsight.generation.OverrideImplementUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
@@ -49,7 +51,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 
 
-
 public class ExtractSuperClassMultiUtil {
   private static final Logger LOG = Logger.getInstance("com.intellij.refactoring.extractSuperclassMulti.ExtractSuperClassMultiUtil");
   private ExtractSuperClassMultiUtil() {}
@@ -67,7 +68,7 @@ public class ExtractSuperClassMultiUtil {
       final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findDirectSubClassesInDirectory(subclass.getSuperClass(), GenAnalysisUtils.getContainingDirectory(subclass));  // rem : in extract super-class, we are only interested in classes at the same level. For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
       final String packageName = ((PsiJavaFile)subclass.getContainingFile()).getPackageName();
 
-      final Collection<PsiClass> selectedSisterClasses = new Vector();
+      final Collection<PsiClass> selectedSisterClasses = new Vector<PsiClass>();
 
 
       // filter sister classes which have the selected members
@@ -85,12 +86,12 @@ public class ExtractSuperClassMultiUtil {
             }
         }
       }
-      
+
       if (selectedSisterClasses.isEmpty()) {
           throw new IncorrectOperationException ("Internal error: no convenient class found (in extractSuperClassMulti).");
       }
 
-      
+
       return extractSuperClass(project, targetDirectory, superclassName, selectedSisterClasses, selectedMemberInfos, javaDocPolicy, useGenericUnification);
   }
 
@@ -147,9 +148,7 @@ public class ExtractSuperClassMultiUtil {
       pullUpHelper.moveFieldInitializations();
     }
     else {  */
-      PullUpGenHelper pullUpHelper = new PullUpGenHelper(aSubClass, subclasses, myfreshsuperclass, selectedMemberInfos,
-                                                 javaDocPolicy
-                                    );
+      PullUpGenProcessor pullUpHelper = new PullUpGenProcessor(aSubClass, subclasses, myfreshsuperclass, selectedMemberInfos, javaDocPolicy);
         try {
             pullUpHelper.moveMembersToBase();                // TODO : make that efficient (unifiers are searched twice: one time for computing the sister classes, and one time for the pull-up)
         } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {

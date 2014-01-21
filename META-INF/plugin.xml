@@ -1,5 +1,6 @@
 <idea-plugin version="2">
   <name>Pull up method refactoring extension</name>
+  <depends>com.intellij</depends>
   <description><![CDATA[
      <p> Extends <i>Pull Members Up</i> refactoring to consider methods with different types in different classes to be pulled-up as an abstract method with generic types.</p> <p> Also provides an extension of the <i>Extract Superclass</i> refactoring to support several classes simulteanously.</p>
             ]]></description>
@@ -37,15 +38,15 @@
   </change-notes>
   <actions>
     <!-- Add your actions here -->
-      <action id="PullUpAbstractGenerics.PullUpGenDialog" class="PullUpGenAction" text="Pull Up with Generics (abstract)"
+      <action id="PullUpAbstractGenerics.PullUpGenDialog" class="com.intellij.refactoring.memberPullUp.PullUpGenAction" text="Pull Up with Generics (abstract)"
               description="Pull up method as abstract (insert type parameter)">
           <add-to-group group-id="RefactoringMenu" anchor="last"/>
       </action>
-      <action id="ExtractSuperClassMulti.ExtractSuperClass" class="ExtractSuperClassMultiAction"
+      <action id="ExtractSuperClassMulti.ExtractSuperClass" class="com.intellij.refactoring.memberPullUp.ExtractSuperClassMultiAction"
               text="Extract Superclass (multi)" description="Extract a superclass from several classes">
           <add-to-group group-id="RefactoringMenu" anchor="last"/>
       </action>
-      <action id="ExtractSuperClassMulti.ExtractSuperClassGen" class="ExtractSuperClassMultiGenAction"
+      <action id="ExtractSuperClassMulti.ExtractSuperClassGen" class="com.intellij.refactoring.memberPullUp.ExtractSuperClassMultiGenAction"
               text="Extract Superclass (multi+gen)"
               description="Extract a superclass from several classes, possibly with generification">
           <add-to-group group-id="RefactoringMenu" anchor="last"/>
@@ -54,5 +55,8 @@
 
   <extensions defaultExtensionNs="com.intellij">
     <!-- Add your extensions here -->
+      <refactoring.pullUpHelperFactory
+              language="JAVA"
+              implementationClass="com.intellij.refactoring.memberPullUp.JavaPullUpGenHelperFactory"/>
   </extensions>
 </idea-plugin>

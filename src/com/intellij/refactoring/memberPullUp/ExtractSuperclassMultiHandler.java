@@ -19,7 +19,7 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
-
+package com.intellij.refactoring.memberPullUp;
 
 import com.intellij.history.LocalHistory;
 import com.intellij.history.LocalHistoryAction;
@@ -50,7 +50,6 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import java.util.List;
-
 
 
 public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, ExtractSuperclassDialog.Callback, ElementsHandler {

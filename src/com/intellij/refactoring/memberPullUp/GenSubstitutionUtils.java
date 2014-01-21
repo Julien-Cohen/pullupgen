@@ -1,7 +1,3 @@
-import com.intellij.psi.*;
-import com.intellij.util.IncorrectOperationException;
-
-import java.util.*;
 
 /**
  * Created with IntelliJ IDEA.
@@ -10,6 +6,15 @@ import java.util.*;
  * Time: 15:01
  * To change this template use File | Settings | File Templates.
  */
+
+package com.intellij.refactoring.memberPullUp;
+
+import com.intellij.psi.*;
+import com.intellij.util.IncorrectOperationException;
+
+import java.util.*;
+
+
 public class GenSubstitutionUtils {
 
 

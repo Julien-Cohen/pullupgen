@@ -1,10 +1,11 @@
-import com.intellij.openapi.util.Pair;
+package com.intellij.refactoring.memberPullUp;
+
+//import com.intellij.openapi.util.Pair;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiType;
 import com.intellij.psi.PsiTypeParameter;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 /**

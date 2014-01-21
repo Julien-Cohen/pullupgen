@@ -1,5 +1,7 @@
+package com.intellij.refactoring.memberPullUp;
+
 import com.intellij.psi.*;
-import com.intellij.psi.search.*;
+import com.intellij.psi.search.SearchScope;
 import com.intellij.psi.search.searches.ClassInheritorsSearch;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.util.IncorrectOperationException;

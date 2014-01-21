@@ -19,7 +19,7 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
-
+package com.intellij.refactoring.memberPullUp;
 
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
@@ -154,16 +154,17 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
 
 
   public boolean checkConflicts(final PullUpGenDialog dialog) {
-    final MemberInfo[] infos = dialog.getSelectedMemberInfos();
+    final List<MemberInfo> infos = dialog.getSelectedMemberInfos();
+    final MemberInfo[] memberInfos = infos.toArray(new MemberInfo[infos.size()]);
     final PsiClass superClass = dialog.getSuperClass();
-    if (!checkWritable(superClass, infos)) return false;
+    if (!checkWritable(superClass, memberInfos)) return false;
     final MultiMap<PsiElement, String> conflicts = new MultiMap<PsiElement, String>();
     if (!ProgressManager.getInstance().runProcessWithProgressSynchronously(new Runnable() {
       public void run() {
         final PsiDirectory targetDirectory = superClass.getContainingFile().getContainingDirectory();
         final PsiPackage targetPackage = targetDirectory != null ? JavaDirectoryService.getInstance().getPackage(targetDirectory) : null;
         conflicts
-          .putAllValues(PullUpGenConflictsUtil.checkConflicts(infos, mySubclass, superClass, targetPackage, targetDirectory, dialog.getContainmentVerifier()));
+          .putAllValues(PullUpGenConflictsUtil.checkConflicts(memberInfos, mySubclass, superClass, targetPackage, targetDirectory, dialog.getContainmentVerifier()));
       }
     }, RefactoringBundle.message("detecting.possible.conflicts"), true, myProject)) return false;
     if (!conflicts.isEmpty()) {

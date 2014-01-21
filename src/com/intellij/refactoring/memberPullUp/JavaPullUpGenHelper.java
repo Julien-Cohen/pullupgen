@@ -19,44 +19,34 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
+package com.intellij.refactoring.memberPullUp;
 
-
-import com.intellij.analysis.AnalysisScope;
 import com.intellij.codeInsight.AnnotationUtil;
 import com.intellij.codeInsight.ChangeContextUtil;
 import com.intellij.codeInsight.PsiEquivalenceUtil;
 import com.intellij.codeInsight.intention.AddAnnotationFix;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ModalityState;
+import com.intellij.lang.Language;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.Key;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleSettings;
 import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
 import com.intellij.psi.search.LocalSearchScope;
-import com.intellij.psi.search.searches.ClassInheritorsSearch;
 import com.intellij.psi.search.searches.OverridingMethodsSearch;
 import com.intellij.psi.search.searches.ReferencesSearch;
-import com.intellij.psi.util.*;
-import com.intellij.refactoring.BaseRefactoringProcessor;
-import com.intellij.refactoring.RefactoringBundle;
-import com.intellij.refactoring.listeners.JavaRefactoringListenerManager;
-import com.intellij.refactoring.listeners.impl.JavaRefactoringListenerManagerImpl;
+import com.intellij.psi.util.InheritanceUtil;
+import com.intellij.psi.util.MethodSignatureUtil;
+import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.psi.util.PsiUtil;
 import com.intellij.refactoring.util.DocCommentPolicy;
+import com.intellij.refactoring.util.RefactoringChangeUtil;
 import com.intellij.refactoring.util.RefactoringHierarchyUtil;
-import com.intellij.refactoring.util.RefactoringUIUtil;
 import com.intellij.refactoring.util.RefactoringUtil;
 import com.intellij.refactoring.util.classMembers.ClassMemberReferencesVisitor;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
-import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
-import com.intellij.usageView.UsageInfo;
-import com.intellij.usageView.UsageViewDescriptor;
-import com.intellij.usageView.UsageViewUtil;
 import com.intellij.util.IncorrectOperationException;
-import com.intellij.util.Query;
 import com.intellij.util.VisibilityUtil;
 import com.intellij.util.containers.HashMap;
 import org.jetbrains.annotations.NotNull;
@@ -64,58 +54,63 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-public class PullUpGenHelper extends BaseRefactoringProcessor{
-  private static final Logger LOG = Logger.getInstance("#com.intellij.refactoring.memberPullUp.PullUpGenHelper");
+public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
+
+  private static final Logger LOG = Logger.getInstance(JavaPullUpGenHelper.class);
   private static final Key<Boolean> PRESERVE_QUALIFIER = Key.<Boolean>create("PRESERVE_QUALIFIER");
   private final PsiClass mySourceClass;
   private final PsiClass myTargetSuperClass;
   private final boolean myIsTargetInterface;
-  private final MemberInfo[] myMembersToMove;
+  //private final MemberInfo[] myMembersToMove;
   private final DocCommentPolicy myJavaDocPolicy;
-  private HashSet<PsiMember> myMembersAfterMove = null;
-  private final PsiManager myManager;
+  private Set<PsiMember> myMembersAfterMove ; // Set of members that have been already moved (name seems to be badly chosen, but comes from intelliJ).
+  @NotNull private Set<PsiMember> myMembersToMove;
+  //private final PsiManager myManager;
 
   @Nullable
   protected Collection<PsiClass> sisterClasses = null;   // julien
 
 
-  public PullUpGenHelper(PsiClass sourceClass, PsiClass targetSuperClass, MemberInfo[] membersToMove,
-                         DocCommentPolicy javaDocPolicy) {
-    super(sourceClass.getProject());
-    mySourceClass = sourceClass;
-    myTargetSuperClass = targetSuperClass;
-    myMembersToMove = membersToMove;
-    myJavaDocPolicy = javaDocPolicy;
-    myIsTargetInterface = targetSuperClass.isInterface();
-    myManager = mySourceClass.getManager();
+
+
+  private Project myProject;
+
+
+
+  private final QualifiedThisSuperAdjuster myThisSuperAdjuster;
+
+  private final ExplicitSuperDeleter myExplicitSuperDeleter;
+
+
+
+  public JavaPullUpGenHelper(PullUpGenData data) {
+    this ((PullUpData) data);
+    sisterClasses = data.getSisterClasses();
+  }
+
+  public JavaPullUpGenHelper(PullUpData data) {
+        myProject = data.getProject();
+        myMembersToMove = data.getMembersToMove();
+        myMembersAfterMove = data.getMovedMembers();
+        myTargetSuperClass = data.getTargetClass();
+        mySourceClass = data.getSourceClass();
+        myJavaDocPolicy = data.getDocCommentPolicy();
+        myIsTargetInterface = myTargetSuperClass.isInterface();
+
+
+        myThisSuperAdjuster = new QualifiedThisSuperAdjuster();
+        myExplicitSuperDeleter = new ExplicitSuperDeleter();
   }
 
 
-  public PullUpGenHelper(PsiClass sourceClass, Collection<PsiClass> classes, PsiClass targetSuperClass, MemberInfo[] membersToMove,
-                         DocCommentPolicy javaDocPolicy) {
-       this(sourceClass, targetSuperClass, membersToMove, javaDocPolicy) ;
-       sisterClasses = classes;
+  @Override
+  public void encodeContextInfo(MemberInfo info) {
+    ChangeContextUtil.encodeContextInfo(info.getMember(), true);
   }
 
-  @NotNull
-  protected UsageViewDescriptor createUsageViewDescriptor(UsageInfo[] usages) {
-    return new PullUpUsageViewDescriptor();
-  }
 
-  @NotNull
-  protected UsageInfo[] findUsages() {
-    final List<UsageInfo> result = new ArrayList<UsageInfo>();
-    for (MemberInfo memberInfo : myMembersToMove) {
-      final PsiMember member = memberInfo.getMember();
-      if (member.hasModifierProperty(PsiModifier.STATIC)) {
-        for (PsiReference reference : ReferencesSearch.search(member)) {
-          result.add(new UsageInfo(reference));
-        }
-      }
-    }
-    return result.isEmpty() ? UsageInfo.EMPTY_ARRAY : result.toArray(new UsageInfo[result.size()]);
-  }
-
+// FIXME Deplace vers PullUpProcessor, mais garder du code perso
+/*
   protected void performRefactoring(UsageInfo[] usages) {
       try {
           moveMembersToBase();
@@ -141,40 +136,109 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       }
     }, ModalityState.NON_MODAL, myProject.getDisposed());
   }
+*/
 
-  private void processMethodsDuplicates() {
-    if (!myTargetSuperClass.isValid()) return;
-    ProgressManager.getInstance().runProcessWithProgressSynchronously(new Runnable() {
-      // @Override
-      public void run() {
-        final Query<PsiClass> search = ClassInheritorsSearch.search(myTargetSuperClass);
-        final Set<VirtualFile> hierarchyFiles = new HashSet<VirtualFile>();
-        for (PsiClass aClass : search) {
-          final PsiFile containingFile = aClass.getContainingFile();
-          if (containingFile != null) {
-            final VirtualFile virtualFile = containingFile.getVirtualFile();
-            if (virtualFile != null) {
-              hierarchyFiles.add(virtualFile);
-            }
+    /*
+ @Override
+  public void move(MemberInfo info, PsiSubstitutor substitutor) {
+    if (info.getMember() instanceof PsiMethod) {
+      doMoveMethod(substitutor, info);
+     }
+    else if (info.getMember() instanceof PsiField) {
+      doMoveField(substitutor, info);
+    }
+    else if (info.getMember() instanceof PsiClass) {
+      doMoveClass(substitutor, info);
+    }
+  }
+  */
+
+  @Override
+  public void move(MemberInfo info, PsiSubstitutor substitutor) {
+        if (info.getMember() instanceof PsiMethod) {
+            doMoveMethod(substitutor, info);
+        }
+        else if (info.getMember() instanceof PsiField) {
+            doMoveField(substitutor, info);
+        }
+
+
+        else if (info.getMember() instanceof PsiClass) {
+            doMoveClass(substitutor, info);
+        }
+    }
+
+  @Override
+  public void postProcessMember(PsiMember member) {
+    member.accept(myExplicitSuperDeleter);
+    member.accept(myThisSuperAdjuster);
+
+    ChangeContextUtil.decodeContextInfo(member, null, null);
+
+    member.accept(new JavaRecursiveElementWalkingVisitor() {
+      @Override
+      public void visitReferenceExpression(PsiReferenceExpression expression) {
+        final PsiExpression qualifierExpression = expression.getQualifierExpression();
+        if (qualifierExpression != null) {
+          final Boolean preserveQualifier = qualifierExpression.getCopyableUserData(PRESERVE_QUALIFIER);
+          if (preserveQualifier != null && !preserveQualifier) {
+            qualifierExpression.delete();
+            return;
           }
         }
-        final Set<PsiMember> methodsToSearchDuplicates = new HashSet<PsiMember>();     // Julien : ??
-        //final Set<PsiMethod> methodsToSearchDuplicates = new HashSet<PsiMethod>();   // Julien : ??
-        for (PsiMember psiMember : myMembersAfterMove) {
-          if (psiMember instanceof PsiMethod && ((PsiMethod)psiMember).getBody() != null) {
-            methodsToSearchDuplicates.add((PsiMethod)psiMember);
-          }
-        }
-
-        MethodDuplicatesHandler.invokeOnScope(myProject,  methodsToSearchDuplicates, new AnalysisScope(myProject, hierarchyFiles), true);
+        super.visitReferenceExpression(expression);
       }
-    }, MethodDuplicatesHandler.REFACTORING_NAME, true, myProject);
+    });
+
   }
 
-  protected String getCommandName() { // changed to be compat with both IDEA 12 and 13
-    return RefactoringBundle.message("pullUp.command", UsageViewUtil.getLongName(mySourceClass));
+  @Override
+  public void setCorrectVisibility(MemberInfo info) {
+        PsiModifierListOwner modifierListOwner = info.getMember();
+
+      /* Julien : I change this because when a method is package, it has to be intensionally changed into public (interface members are public)
+      if (myIsTargetInterface) {
+        PsiUtil.setModifierProperty(modifierListOwner, PsiModifier.PUBLIC, true); // TODO: if you do this, do it for all sister methods (or package?)
+      } */
+        if (myIsTargetInterface && !modifierListOwner.hasModifierProperty("public")){ // TODO : change "public" into *.PUBLIC
+            throw new IncorrectOperationException("Please change the visibility of the method to PUBLIC before moving it into an interface.");   // Julien
+        }
+        else  if (modifierListOwner.hasModifierProperty(PsiModifier.PRIVATE)) {
+            if (info.isToAbstract() || willBeUsedInSubclass(modifierListOwner, myTargetSuperClass, mySourceClass)) {
+                PsiUtil.setModifierProperty(modifierListOwner, PsiModifier.PROTECTED, true);
+            }
+            if (modifierListOwner instanceof PsiClass) {
+                modifierListOwner.accept(new JavaRecursiveElementWalkingVisitor() {
+                    @Override
+                    public void visitMethod(PsiMethod method) {
+                        check(method);
+                    }
+
+                    @Override
+                    public void visitField(PsiField field) {
+                        check(field);
+                    }
+
+                    @Override
+                    public void visitClass(PsiClass aClass) {
+                        check(aClass);
+                        super.visitClass(aClass);
+                    }
+
+                    private void check(PsiMember member) {
+                        if (member.hasModifierProperty(PsiModifier.PRIVATE)) {
+                            if (willBeUsedInSubclass(member, myTargetSuperClass, mySourceClass)) {
+                                PsiUtil.setModifierProperty(member, PsiModifier.PROTECTED, true);
+                            }
+                        }
+                    }
+                });
+            }
+        }
   }
 
+    /*
+  // FIXME : deplacer vers PullUpProcessor
   public void moveMembersToBase()
           throws IncorrectOperationException, GenAnalysisUtils.AmbiguousOverloading, GenAnalysisUtils.MemberNotImplemented {
     final HashSet<PsiMember> movedMembers = new HashSet<PsiMember>();
@@ -187,72 +251,138 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
     // correct private member visibility
     for (MemberInfo info : myMembersToMove) {
-
-
       if (info.getMember() instanceof PsiClass && info.getOverrides() != null) continue;
-      PsiModifierListOwner modifierListOwner = info.getMember();
-
-      /* Julien : I change this because when a method is package, it has to be intensionally changed into public (interface members are public)
-      if (myIsTargetInterface) {
-        PsiUtil.setModifierProperty(modifierListOwner, PsiModifier.PUBLIC, true); // TODO: if you do this, do it for all sister methods (or package?)
-      } */
-      if (myIsTargetInterface && !modifierListOwner.hasModifierProperty("public")){ // TODO : change "public" into *.PUBLIC
-        throw new IncorrectOperationException("Please change the visibility of the method to PUBLIC before moving it into an interface.");   // Julien
-      }
-      else  if (modifierListOwner.hasModifierProperty(PsiModifier.PRIVATE)) {
-        if (info.isToAbstract() || willBeUsedInSubclass(modifierListOwner, movedMembers, myTargetSuperClass, mySourceClass)) {
-          PsiUtil.setModifierProperty(modifierListOwner, PsiModifier.PROTECTED, true);
-        }
-        if (modifierListOwner instanceof PsiClass) {
-          modifierListOwner.accept(new JavaRecursiveElementWalkingVisitor() {
-            @Override
-            public void visitMethod(PsiMethod method) {
-              check(method);
-            }
-
-            @Override
-            public void visitField(PsiField field) {
-              check(field);
-            }
-
-            @Override
-            public void visitClass(PsiClass aClass) {
-              check(aClass);
-              super.visitClass(aClass);
-            }
-
-            private void check(PsiMember member) {
-              if (member.hasModifierProperty(PsiModifier.PRIVATE)) {
-                if (willBeUsedInSubclass(member, movedMembers, myTargetSuperClass, mySourceClass)) {
-                  PsiUtil.setModifierProperty(member, PsiModifier.PROTECTED, true);
-                }
-              }
-            }
-          });
-        }
-      }
+      setCorrectVisibility(movedMembers, info);
       ChangeContextUtil.encodeContextInfo(info.getMember(), true);
     }
 
     final PsiSubstitutor substitutor = upDownSuperClassSubstitutor();    // (rem Julien) a PsiSubstitutor represents a mapping between type parameters and their values
-    final PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
-
+    //final PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
 
     // (Julien) compute the set of sister methods (which have all the compatible members)
-
-    if (sisterClasses == null )
-            initSisterClasses(myMembersToMove[0]) ;
+    if (sisterClasses == null ) initSisterClasses(myMembersToMove[0]) ;
     assert (sisterClasses != null);
 
-
-    final List<String> boundNames = GenSubstitutionUtils.boundTypeNames(myTargetSuperClass); // Used to ensure fresh type parameter names.
     for (PsiClass c : sisterClasses) GenBuildUtils.alignParameters(myTargetSuperClass, c, elementFactory);
 
     // do actual move (for each member to move)
     for (MemberInfo info : myMembersToMove) {
 
+        move(info, substitutor);
+    }
 
-        if (info.getMember() instanceof PsiMethod) { // (rem Julien) for pulling-up methods
+    ExplicitSuperDeleter explicitSuperDeleter = new ExplicitSuperDeleter();
+    for (PsiMember member : myMembersAfterMove) {
+      member.accept(explicitSuperDeleter);
+    }
+    explicitSuperDeleter.fixSupers();
+
+    final QualifiedThisSuperAdjuster qualifiedThisSuperAdjuster = new QualifiedThisSuperAdjuster();
+    for (PsiMember member : myMembersAfterMove) {
+      member.accept(qualifiedThisSuperAdjuster);
+    }
+
+    ChangeContextUtil.decodeContextInfo(myTargetSuperClass, null, null);
+
+    for (final PsiMember movedMember : myMembersAfterMove) {
+      movedMember.accept(new JavaRecursiveElementWalkingVisitor() {
+        @Override
+        public void visitReferenceExpression(PsiReferenceExpression expression) {
+          final PsiExpression qualifierExpression = expression.getQualifierExpression();
+          if (qualifierExpression != null) {
+            final Boolean preserveQualifier = qualifierExpression.getCopyableUserData(PRESERVE_QUALIFIER);
+            if (preserveQualifier != null && !preserveQualifier) {
+              qualifierExpression.delete();
+              return;
+            }
+          }
+          super.visitReferenceExpression(expression);
+        }
+      });
+      final JavaRefactoringListenerManager listenerManager = JavaRefactoringListenerManager.getInstance(movedMember.getProject());
+      ((JavaRefactoringListenerManagerImpl)listenerManager).fireMemberMoved(mySourceClass, movedMember);
+    }
+  }
+*/
+
+    private void doMoveClass(PsiSubstitutor substitutor, MemberInfo info) {
+        // (rem Julien) case where the member to pull-up is a class/interface, internal or declared as superclass/interface
+        if (GenAnalysisUtils.memberClassComesFromImplements(info)){
+              doMoveImplementedClass(substitutor, info);
+          }
+
+          else { // (rem Julien) the member refers to a class, but not from 'implements' : either from 'extends', either from inner-class. I guess 'extends' are out of scope of the pull-up operation.
+            assert(GenAnalysisUtils.memberClassIsInnerClass(info));
+            PsiClass aClass = (PsiClass)info.getMember();
+            throw new IncorrectOperationException("inner classes not handled yet : " + aClass);  /*
+            RefactoringUtil.replaceMovedMemberTypeParameters(aClass, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
+            fixReferencesToStatic(aClass, movedMembers);
+            final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(aClass);
+            myMembersAfterMove.add(movedElement);
+            aClass.delete();  */
+            // TODO : handle inner classes
+          }
+    }
+
+    private void doMoveImplementedClass(PsiSubstitutor substitutor, MemberInfo info) {
+        PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
+        //System.out.println("pull-up-gen/moveMembersToBase : case 'implements'");
+        PsiClass implementedIntf = (PsiClass) info.getMember();
+
+        final PsiReferenceList sourceReferenceList = info.getSourceReferenceList();    // the class containing the member source code
+        //System.out.println(sourceReferenceList); // debug
+
+
+        LOG.assertTrue(sourceReferenceList != null);
+
+        //System.out.println(mySourceClass + " eq " + sourceReferenceList.getParent() + " : " + mySourceClass.equals(sourceReferenceList.getParent())); // debug  : true on A false on B
+
+        // Warning : the member might not be extracted from 'mySourceClass'. This is tested by  mySourceClass.equals(sourceReferenceList.getParent()) .
+
+        PsiJavaCodeReferenceElement ref = mySourceClass.equals(sourceReferenceList.getParent()) ?                   // debug : true in the test
+                                          RefactoringUtil.removeFromReferenceList(sourceReferenceList, implementedIntf) : // remove returns a copy
+                                          (PsiJavaCodeReferenceElement)RefactoringUtil.findReferenceToClass   (sourceReferenceList, implementedIntf).copy();     // Julien : make a copy because will be deleted
+        //System.out.println(ref); // debug   ( "I" in the test)
+
+        // added Julien
+        for (PsiClass c : sisterClasses) {
+            RefactoringUtil.removeFromReferenceList(c.getImplementsList(), implementedIntf);
+            // TODO: since mySourclass is in sisterClasses, don't need to removeFromReference... above.
+        }
+
+
+        if (ref == null) { throw new IncorrectOperationException("ref to 'implements' not found in "+mySourceClass)  ; }
+
+        // TODO : this should be done for all sister classes
+        RefactoringUtil.replaceMovedMemberTypeParameters(ref, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
+
+        // find the target statement in the superclass/interface
+        final PsiReferenceList targetReferenceList =
+                 myTargetSuperClass.isInterface() ? myTargetSuperClass.getExtendsList() : myTargetSuperClass.getImplementsList();
+        LOG.assertTrue (targetReferenceList != null);
+
+        if (targetReferenceList == null) { throw new IncorrectOperationException("reference list not found in "+myTargetSuperClass)  ; }
+
+        targetReferenceList.add(ref);
+    }
+
+    private void doMoveField(PsiSubstitutor substitutor, MemberInfo info) {
+        PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
+        PsiField field = (PsiField)info.getMember();
+        field.normalizeDeclaration();
+        RefactoringUtil.replaceMovedMemberTypeParameters(field, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
+        fixReferencesToStatic(field);
+        if (myIsTargetInterface) {
+          PsiUtil.setModifierProperty(field, PsiModifier.PUBLIC, true);
+        }
+        final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(field);
+        myMembersAfterMove.add(movedElement);
+        field.delete();
+    }
+
+    private void doMoveMethod(PsiSubstitutor substitutor, MemberInfo info) {
+        List<String> boundNames =  GenSubstitutionUtils.boundTypeNames(myTargetSuperClass);
+        PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
         PsiMethod method = (PsiMethod)info.getMember();
         PsiMethod methodCopy = (PsiMethod)method.copy();
         if (method.findDeepestSuperMethods().length == 0) {
@@ -262,12 +392,12 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
 
         // (rem Julien) case isToAbstract  (case of interest for pull-up-gen)
-            
+
         if (myIsTargetInterface || info.isToAbstract()) {
           assert(this.myTargetSuperClass.hasModifierProperty(PsiModifier.ABSTRACT));  // and the interface case?
           ChangeContextUtil.clearContextInfo(method);
-            
-          // begin Julien 
+
+          // begin Julien
           // 1) collect the sister methods (methods with the same type skeleton in sister classes).
           final List<PsiMethod> sisterMethods = GenAnalysisUtils.findCompatibleMethods(method, sisterClasses);    // TODO : make that efficient (classes are traversed twice)
 
@@ -275,24 +405,24 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
           //System.out.println("Selected methods:");
           //for (PsiMethod m: sisterMethods) System.out.println(m);
-          
+
           // 2)find which types have to be parameterized
 
           final DependentSubstitution initialParameters = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory); // used later to know the type parameters of the initial clases TODO: improve that
           DependentSubstitution       theMegaSubst      = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory);   // TODO: clone initialParameters above?
-            
+
           // final List <Integer> positions = GenerifyUtils.positionsToUnify(sisterMethods); // -1 represent the return type position
           // final Map<Integer, PsiTypeParameter> sub = GenerifyUtils.unify(sisterMethods,computecurrentsubstitution(), method.getName(), JavaPsiFacade.getElementFactory(method.getProject()));
 
 
-            final GenSubstitutionUtils.ParamSubstitution sub = GenSubstitutionUtils.antiunify(sisterMethods, theMegaSubst, method.getName(), elementFactory, boundNames); // TODO : fix that (empty substitution)
+          final GenSubstitutionUtils.ParamSubstitution sub = GenSubstitutionUtils.antiunify(sisterMethods, theMegaSubst, method.getName(), elementFactory, boundNames); // TODO : fix that (empty substitution)
           // System.out.println("Positions to generify:" + positions );
-            
+
 
 
           // 3) build the abstract method
-            RefactoringUtil.makeMethodAbstract(myTargetSuperClass, methodCopy);
-            //System.out.println("Copy of selected method created and abstracted: " + methodCopy) ;
+          RefactoringUtil.makeMethodAbstract(myTargetSuperClass, methodCopy);
+          //System.out.println("Copy of selected method created and abstracted: " + methodCopy) ;
 
 
           // 4) generify the abstract method
@@ -312,8 +442,8 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
 
           // 7) Add type parameters to the superclass
-            DependentSubstitution newParameters = GenSubstitutionUtils.difference(theMegaSubst, initialParameters);
-            for (PsiTypeParameter t: newParameters.keySet()){
+          DependentSubstitution newParameters = GenSubstitutionUtils.difference(theMegaSubst, initialParameters);
+          for (PsiTypeParameter t: newParameters.keySet()){
               myTargetSuperClass.getTypeParameterList().add(t);
           }
 
@@ -323,11 +453,11 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
           final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(methodCopy);
 
 
-          
+
           // 9) Add the parameters in sisterclasses extends statements
           GenBuildUtils.updateExtendsStatementsInSisterClasses(newParameters, myTargetSuperClass, elementFactory);
           //System.out.println("Extends statements updated in sister classes.");
-          
+
           // end Julien
 
           // 10) Manage override annotations
@@ -365,7 +495,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
             PsiUtil.setModifierProperty(myTargetSuperClass, PsiModifier.ABSTRACT, true);
           }
           RefactoringUtil.replaceMovedMemberTypeParameters(methodCopy, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-          fixReferencesToStatic(methodCopy, movedMembers);
+          fixReferencesToStatic(methodCopy);
           final PsiMethod superClassMethod = myTargetSuperClass.findMethodBySignature(methodCopy, false);
           if (superClassMethod != null && superClassMethod.hasModifierProperty(PsiModifier.ABSTRACT)) {
             superClassMethod.replace(methodCopy);
@@ -376,158 +506,63 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
           }
           method.delete();
         }
-      }
-
-
-      // (rem Julien) case where the member to pull-up is a field
-      else if (info.getMember() instanceof PsiField) {
-        PsiField field = (PsiField)info.getMember();
-        field.normalizeDeclaration();
-        RefactoringUtil.replaceMovedMemberTypeParameters(field, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-        fixReferencesToStatic(field, movedMembers);
-        if (myIsTargetInterface) {
-          PsiUtil.setModifierProperty(field, PsiModifier.PUBLIC, true);
-        }
-        final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(field);
-        myMembersAfterMove.add(movedElement);
-        field.delete();
-      }
-
-      // (rem Julien) case where the member to pull-up is a class/interface, internal or declared as superclass/interface
-      else if (GenAnalysisUtils.memberClassComesFromImplements(info)){
-
-          //System.out.println("pull-up-gen/moveMembersToBase : case 'implements'");
-          PsiClass implementedIntf = (PsiClass) info.getMember();
-
-          final PsiReferenceList sourceReferenceList = info.getSourceReferenceList();    // the class containing the member source code
-          //System.out.println(sourceReferenceList); // debug
-
-
-          LOG.assertTrue(sourceReferenceList != null);
-
-          //System.out.println(mySourceClass + " eq " + sourceReferenceList.getParent() + " : " + mySourceClass.equals(sourceReferenceList.getParent())); // debug  : true on A false on B
-
-          // Warning : the member might not be extracted from 'mySourceClass'. This is tested by  mySourceClass.equals(sourceReferenceList.getParent()) .
-
-          PsiJavaCodeReferenceElement ref = mySourceClass.equals(sourceReferenceList.getParent()) ?                   // debug : true in the test
-                                            RefactoringUtil.removeFromReferenceList(sourceReferenceList, implementedIntf) : // remove returns a copy
-                                            (PsiJavaCodeReferenceElement)RefactoringUtil.findReferenceToClass   (sourceReferenceList, implementedIntf).copy();     // Julien : make a copy because will be deleted
-          //System.out.println(ref); // debug   ( "I" in the test)
-
-          // added Julien
-          for (PsiClass c : sisterClasses) {
-              RefactoringUtil.removeFromReferenceList(c.getImplementsList(), implementedIntf);
-              // TODO: since mySourclass is in sisterClasses, don't need to removeFromReference... above.
-          }
-
-
-          if (ref == null) { throw new IncorrectOperationException("ref to 'implements' not found in "+mySourceClass)  ; }
-
-          // TODO : this should be done for all sister classes
-          RefactoringUtil.replaceMovedMemberTypeParameters(ref, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-
-          // find the target statement in the superclass/interface
-          final PsiReferenceList targetReferenceList =
-                   myTargetSuperClass.isInterface() ? myTargetSuperClass.getExtendsList() : myTargetSuperClass.getImplementsList();
-          LOG.assertTrue (targetReferenceList != null);
-
-          if (targetReferenceList == null) { throw new IncorrectOperationException("reference list not found in "+myTargetSuperClass)  ; }
-
-          targetReferenceList.add(ref);
-
-
-        }
-
-
-        else { // (rem Julien) the member refers to a class, but not from 'implements' : either from 'extends', either from inner-class. I guess 'extends' are out of scope of the pull-up operation.
-          assert(GenAnalysisUtils.memberClassIsInnerClass(info));
-          PsiClass aClass = (PsiClass)info.getMember();
-          throw new IncorrectOperationException("inner classes not handled yet : " + aClass);  /*
-          RefactoringUtil.replaceMovedMemberTypeParameters(aClass, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-          fixReferencesToStatic(aClass, movedMembers);
-          final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(aClass);
-          myMembersAfterMove.add(movedElement);
-          aClass.delete();  */
-          // TODO : handle inner classes
-        }
-
-
     }
 
-    ExplicitSuperDeleter explicitSuperDeleter = new ExplicitSuperDeleter();
-    for (PsiMember member : myMembersAfterMove) {
-      member.accept(explicitSuperDeleter);
-    }
-    explicitSuperDeleter.fixSupers();
-
-    final QualifiedThisSuperAdjuster qualifiedThisSuperAdjuster = new QualifiedThisSuperAdjuster();
-    for (PsiMember member : myMembersAfterMove) {
-      member.accept(qualifiedThisSuperAdjuster);
-    }
-
-    ChangeContextUtil.decodeContextInfo(myTargetSuperClass, null, null);
-
-    for (final PsiMember movedMember : myMembersAfterMove) {
-      movedMember.accept(new JavaRecursiveElementWalkingVisitor() {
-        @Override
-        public void visitReferenceExpression(PsiReferenceExpression expression) {
-          final PsiExpression qualifierExpression = expression.getQualifierExpression();
-          if (qualifierExpression != null) {
-            final Boolean preserveQualifier = qualifierExpression.getCopyableUserData(PRESERVE_QUALIFIER);
-            if (preserveQualifier != null && !preserveQualifier) {
-              qualifierExpression.delete();
-              return;
-            }
-          }
-          super.visitReferenceExpression(expression);
-        }
-      });
-      final JavaRefactoringListenerManager listenerManager = JavaRefactoringListenerManager.getInstance(movedMember.getProject());
-      ((JavaRefactoringListenerManagerImpl)listenerManager).fireMemberMoved(mySourceClass, movedMember);
-    }
-  }
-
-
-    void initSisterClasses(MemberInfo memberToMove)
+    @Deprecated
+    void initSisterClasses(MemberInfo[] membersToMove)
             throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
+        sisterClasses = computeSisterClasses(membersToMove);
+    }
 
+    public Collection<PsiClass> getSisterClasses(MemberInfo[] membersToMove)
+            throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
+        if (sisterClasses == null) initSisterClasses(membersToMove);
+        return sisterClasses;
+    }
 
-        Collection <PsiClass> baseCol = GenAnalysisUtils.findSubClassesWithCompatibleMember(memberToMove, this.myTargetSuperClass);
+    @Deprecated
+    @NotNull
+    Collection<PsiClass> computeSisterClasses(@NotNull MemberInfo[] membersToMove)
+            throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
+        if (membersToMove.length == 0) return new HashSet(); // Empty
 
-        Collection <PsiClass> tmpCol;
-        for(int i =1 ; i< myMembersToMove.length; i++){
-            tmpCol = GenAnalysisUtils.findSubClassesWithCompatibleMember(memberToMove, this.myTargetSuperClass);
-            if (baseCol.size() != tmpCol.size() || !baseCol.containsAll(tmpCol)) throw new IncorrectOperationException("these members cannot be pulled-up from the same sister classes, please pull them up with two separate refactoring operations.");
+        Collection <PsiClass> baseSet = GenAnalysisUtils.findSubClassesWithCompatibleMember(membersToMove[0], this.myTargetSuperClass);
+
+        Collection <PsiClass> tmpSet;
+        for(MemberInfo m : membersToMove){
+            tmpSet = GenAnalysisUtils.findSubClassesWithCompatibleMember(m, this.myTargetSuperClass);
+            if (!baseSet.equals(tmpSet))
+                throw new IncorrectOperationException("These members cannot be pulled-up from the same set of sister classes, please pull them up with two separate refactoring operations."); // FIXME : should be less strict.
             // question: que faire si les listes sont différentes pour différentes membres?
             // Peut-on prendre l'intersection? (réfléchir)
         }
-        sisterClasses = baseCol ;
+        return baseSet;
     }
 
 
-
-
-    private PsiSubstitutor upDownSuperClassSubstitutor() {
-    PsiSubstitutor substitutor = PsiSubstitutor.EMPTY; // Julien: a PsiSubstitutor represents a mapping between type parameters and their values. (from PsiSubstitutor)
-      
-    // Julien: collect the type parameters of the source class, and map them to null in the result being built.
-    // null plays the role of default value (can be overwritten later).
-    for (PsiTypeParameter parameter : PsiUtil.typeParametersIterable(mySourceClass)) {
-      substitutor = substitutor.put(parameter, null);
+    private static PsiMethod convertMethodToLanguage(PsiMethod method, Language language) {
+    if (method.getLanguage().equals(language)) {
+      return method;
     }
-
-    final Map<PsiTypeParameter, PsiType> substitutionMap =
-      TypeConversionUtil.getSuperClassSubstitutor(myTargetSuperClass, mySourceClass, PsiSubstitutor.EMPTY).getSubstitutionMap();
-
-    for (PsiTypeParameter parameter : substitutionMap.keySet()) {
-      final PsiType type = substitutionMap.get(parameter);
-      final PsiClass resolvedClass = PsiUtil.resolveClassInType(type);
-      if (resolvedClass instanceof PsiTypeParameter) {
-        substitutor = substitutor.put((PsiTypeParameter)resolvedClass, JavaPsiFacade.getElementFactory(myProject).createType(parameter));
-      }
-    }
-    return substitutor;
+    return JVMElementFactories.getFactory(language, method.getProject()).createMethodFromText(method.getText(), null);
   }
+
+  private static PsiField convertFieldToLanguage(PsiField field, Language language) {
+    if (field.getLanguage().equals(language)) {
+      return field;
+    }
+    return JVMElementFactories.getFactory(language, field.getProject()).createField(field.getName(), field.getType());
+  }
+
+  private static PsiClass convertClassToLanguage(PsiClass clazz, Language language) {
+    //if (clazz.getLanguage().equals(language)) {
+    //  return clazz;
+    //}
+    //PsiClass newClass = JVMElementFactories.getFactory(language, clazz.getProject()).createClass(clazz.getName());
+    return clazz;
+  }
+
+
 
   private static void deleteOverrideAnnotationIfFound(PsiMethod oMethod) {
     final PsiAnnotation annotation = AnnotationUtil.findAnnotation(oMethod, Override.class.getName());
@@ -535,7 +570,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       annotation.delete();
     }
   }
-
+/*
   public void moveFieldInitializations() throws IncorrectOperationException {
     LOG.assertTrue(myMembersAfterMove != null);
 
@@ -557,6 +592,31 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
     for (PsiMethod constructor : constructors) {
       HashSet<PsiMethod> subConstructors = constructorsToSubConstructors.get(constructor);
       tryToMoveInitializers(constructor, subConstructors, movedFields);
+    }
+  }
+*/
+  @Override
+  public void moveFieldInitializations(LinkedHashSet<PsiField> movedFields) {
+    PsiMethod[] constructors = myTargetSuperClass.getConstructors();
+
+    if (constructors.length == 0) {
+      constructors = new PsiMethod[]{null};
+    }
+
+    HashMap<PsiMethod,HashSet<PsiMethod>> constructorsToSubConstructors = buildConstructorsToSubConstructorsMap(constructors);
+    for (PsiMethod constructor : constructors) {
+      HashSet<PsiMethod> subConstructors = constructorsToSubConstructors.get(constructor);
+      tryToMoveInitializers(constructor, subConstructors, movedFields);
+    }
+  }
+
+@Override
+  public void updateUsage(PsiElement element) {
+    if (element instanceof PsiReferenceExpression) {
+      PsiExpression qualifierExpression = ((PsiReferenceExpression)element).getQualifierExpression();
+      if (qualifierExpression instanceof PsiReferenceExpression && ((PsiReferenceExpression)qualifierExpression).resolve() == mySourceClass) {
+        ((PsiReferenceExpression)qualifierExpression).bindToElement(myTargetSuperClass);
+      }
     }
   }
 
@@ -622,7 +682,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       }
     }
 
-    final PsiElementFactory factory = JavaPsiFacade.getInstance(myManager.getProject()).getElementFactory();
+    final PsiElementFactory factory = JavaPsiFacade.getElementFactory(myProject);
 
     if (constructor == null) {
       constructor = (PsiMethod) myTargetSuperClass.add(factory.createConstructor());
@@ -658,8 +718,9 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
       PsiStatement assignmentStatement = (PsiStatement)constructor.getBody().add(initializer.initializer);
 
-      ChangeContextUtil.decodeContextInfo(assignmentStatement,
-                                          myTargetSuperClass, RefactoringUtil.createThisExpression(myManager, null));
+
+      PsiManager manager = PsiManager.getInstance(myProject);
+      ChangeContextUtil.decodeContextInfo(assignmentStatement, myTargetSuperClass, RefactoringChangeUtil.createThisExpression(manager, null));
       for (PsiElement psiElement : initializer.statementsToRemove) {
         psiElement.delete();
       }
@@ -903,9 +964,8 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
     }
     return constructorsToSubConstructors;
   }
-
-  private void fixReferencesToStatic(PsiElement classMember, Set<PsiMember> movedMembers) throws IncorrectOperationException {
-    final StaticReferencesCollector collector = new StaticReferencesCollector(movedMembers);
+  private void fixReferencesToStatic(PsiElement classMember) throws IncorrectOperationException {
+    final StaticReferencesCollector collector = new StaticReferencesCollector();
     classMember.accept(collector);
     ArrayList<PsiJavaCodeReferenceElement> refs = collector.getReferences();
     ArrayList<PsiElement> members = collector.getReferees();
@@ -935,11 +995,11 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
     private ArrayList<PsiJavaCodeReferenceElement> myReferences;
     private ArrayList<PsiElement> myReferees;
     private ArrayList<PsiClass> myRefereeClasses;
-    private final Set<PsiMember> myMovedMembers;
+    //private final Set<PsiMember> myMovedMembers;
 
-    private StaticReferencesCollector(Set<PsiMember> movedMembers) {
+    private StaticReferencesCollector() {
       super(mySourceClass);
-      myMovedMembers = movedMembers;
+      //myMovedMembers = movedMembers;
       myReferees = new ArrayList<PsiElement>();
       myRefereeClasses = new ArrayList<PsiClass>();
       myReferences = new ArrayList<PsiJavaCodeReferenceElement>();
@@ -959,13 +1019,13 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
 
     protected void visitClassMemberReferenceElement(PsiMember classMember, PsiJavaCodeReferenceElement classMemberReference) {
       if (classMember.hasModifierProperty(PsiModifier.STATIC)) {
-        if (!myMovedMembers.contains(classMember) &&
+        if (!myMembersToMove.contains(classMember) &&
             RefactoringHierarchyUtil.isMemberBetween(myTargetSuperClass, mySourceClass, classMember)) {
           myReferences.add(classMemberReference);
           myReferees.add(classMember);
           myRefereeClasses.add(classMember.getContainingClass());
         }
-        else if (myMovedMembers.contains(classMember) || myMembersAfterMove.contains(classMember)) {
+        else if (myMembersToMove.contains(classMember) || myMembersAfterMove.contains(classMember)) {
           myReferences.add(classMemberReference);
           myReferees.add(classMember);
           myRefereeClasses.add(myTargetSuperClass);
@@ -993,7 +1053,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       final PsiJavaCodeReferenceElement qualifier = expression.getQualifier();
       if (qualifier != null && qualifier.isReferenceTo(mySourceClass)) {
         try {
-          expression.replace(JavaPsiFacade.getInstance(myManager.getProject()).getElementFactory().createExpressionFromText(myTargetSuperClass.getName() + ".this", null));
+          expression.replace(JavaPsiFacade.getElementFactory(myProject).createExpressionFromText(myTargetSuperClass.getName() + ".this", null));
         }
         catch (IncorrectOperationException e) {
           LOG.error(e);
@@ -1003,23 +1063,28 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
   }
 
   private class ExplicitSuperDeleter extends JavaRecursiveElementWalkingVisitor {
-    private final ArrayList<PsiExpression> mySupersToDelete = new ArrayList<PsiExpression>();
-    private final ArrayList<PsiSuperExpression> mySupersToChangeToThis = new ArrayList<PsiSuperExpression>();
+    //private final ArrayList<PsiExpression> mySupersToDelete = new ArrayList<PsiExpression>();
+    //private final ArrayList<PsiSuperExpression> mySupersToChangeToThis = new ArrayList<PsiSuperExpression>();
+    private final PsiExpression myThisExpression = JavaPsiFacade.getElementFactory(myProject).createExpressionFromText("this", null);
 
-    @Override public void visitReferenceExpression(PsiReferenceExpression expression) {
+    @Override
+    public void visitReferenceExpression(PsiReferenceExpression expression) {
       if(expression.getQualifierExpression() instanceof PsiSuperExpression) {
         PsiElement resolved = expression.resolve();
         if (resolved == null || resolved instanceof PsiMethod && shouldFixSuper((PsiMethod) resolved)) {
-          mySupersToDelete.add(expression.getQualifierExpression());
+          expression.getQualifierExpression().delete();
         }
       }
     }
 
-    @Override public void visitSuperExpression(PsiSuperExpression expression) {
-      mySupersToChangeToThis.add(expression);
+    @Override
+    public void visitSuperExpression(PsiSuperExpression expression) {
+      expression.replace(myThisExpression);
     }
 
-    @Override public void visitClass(PsiClass aClass) {
+
+    @Override
+    public void visitClass(PsiClass aClass) {
       // do nothing
     }
 
@@ -1041,6 +1106,7 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       return methodFromSuper == null;
     }
 
+    /*
     public void fixSupers() throws IncorrectOperationException {
       final PsiElementFactory factory = JavaPsiFacade.getInstance(myManager.getProject()).getElementFactory();
       PsiThisExpression thisExpression = (PsiThisExpression) factory.createExpressionFromText("this", null);
@@ -1051,19 +1117,20 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       for (PsiSuperExpression psiSuperExpression : mySupersToChangeToThis) {
         psiSuperExpression.replace(thisExpression);
       }
-    }
+    }*/
   }
 
-  private static boolean willBeUsedInSubclass(PsiElement member, Set<PsiMember> movedMembers, PsiClass superclass, PsiClass subclass) {
+  private boolean willBeUsedInSubclass(PsiElement member, PsiClass superclass, PsiClass subclass) {
     for (PsiReference ref : ReferencesSearch.search(member, new LocalSearchScope(subclass), false)) {
       PsiElement element = ref.getElement();
-      if (!RefactoringHierarchyUtil.willBeInTargetClass(element, movedMembers, superclass, false)) {
+      if (!RefactoringHierarchyUtil.willBeInTargetClass(element, myMembersToMove, superclass, false)) {
         return true;
       }
     }
     return false;
   }
 
+  /*
   public static boolean checkedInterfacesContain(Collection<MemberInfo> memberInfos, PsiMethod psiMethod) {
     for (MemberInfo memberInfo : memberInfos) {
       if (memberInfo.isChecked() &&
@@ -1076,7 +1143,9 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
     }
     return false;
   }
+ */
 
+  /*
   private class PullUpUsageViewDescriptor implements UsageViewDescriptor {
     public String getProcessedElementsHeader() {
       return "Pull up members from";
@@ -1095,4 +1164,5 @@ public class PullUpGenHelper extends BaseRefactoringProcessor{
       return null;
     }
   }
+  */
 }

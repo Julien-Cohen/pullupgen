@@ -1,7 +1,10 @@
+package com.intellij.refactoring.memberPullUp;
+
 import com.intellij.psi.*;
 import com.intellij.util.IncorrectOperationException;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
 
 
 /**
