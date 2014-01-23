@@ -32,7 +32,7 @@ import com.intellij.refactoring.util.classMembers.MemberInfo;
 
 import java.util.List;
 
-public class CustomMemberSelectionPanel extends MemberSelectionPanelBase<PsiMember, MemberInfo,  AbstractMemberSelectionTable<PsiMember, MemberInfo>> /* CustomMemberSelectionTable> */ {
+public class CustomMemberSelectionPanel extends MemberSelectionPanelBase<PsiMember, MemberInfo,  AbstractMemberSelectionTable<PsiMember, MemberInfo>>  {
   //private final CustomMemberSelectionTable myTable; // TODO (J) : check that
 
   //MemberSelectionPanel p;   // j: for reference, can be deleted
@@ -45,18 +45,6 @@ public class CustomMemberSelectionPanel extends MemberSelectionPanelBase<PsiMemb
 
     super(title,table);
   }
-  /*public CustomMemberSelectionPanel(String title, List<MemberInfo> infos, String columnHeader) {
-
-    super(title, new CustomMemberSelectionTable(infos, columnHeader));
-    //System.out.println("creation Custom Panel (debut)");
-    //setLayout(new BorderLayout());
-
-
-    //JScrollPane scrollPane = ScrollPaneFactory.createScrollPane(table);
-    //add(SeparatorFactory.createSeparator(title, table), BorderLayout.NORTH);
-    //add(scrollPane, BorderLayout.CENTER);
-    //System.out.println("creation Custom Panel (fin)");
-  }*/
 
 
   protected CustomMemberSelectionTable createMemberSelectionTable(List<MemberInfo> memberInfo, String abstractColumnHeader) {

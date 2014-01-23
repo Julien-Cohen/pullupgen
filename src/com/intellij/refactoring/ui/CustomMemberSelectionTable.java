@@ -68,7 +68,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
     setModel(t);                                // julien    (this is problematic)
 
     //begin copy from AbstractMemberSelectionTable
-      // FIXME : Temporarily disabled because of "runtime package" access violation (myAbstractEnabled)
 
     TableColumnModel model = getColumnModel();
     model.getColumn(DISPLAY_NAME_COLUMN).setCellRenderer(new CustomTableRenderer(this));

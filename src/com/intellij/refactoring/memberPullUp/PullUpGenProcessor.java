@@ -265,13 +265,15 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
 
     PullUpGenHelper<MemberInfo> helper = myProcessors.get(language);
     if (helper == null) {
-        //final LanguageExtension<PullUpGenHelperFactory> instance = PullUpGenHelper.INSTANCE; // to debug (can be inlined)
+
         final LanguageExtension<PullUpHelperFactory> instance = PullUpGenHelper.INSTANCE; // to debug (can be inlined)
-                 // FIXME
-                System.out.println(instance); // objet
-                System.out.println(language); // JAVA
-                System.out.println("instance for langage : " + instance.forLanguage(language)); // com.intellij.refactoring.memberPullUp.JavaPullUpHelperFactory@1a01125
-                System.out.println("instance for key : " + instance.forKey(language)); // [com.intellij.refactoring.memberPullUp.JavaPullUpHelperFactory@1a01125, com.intellij.refactoring.memberPullUp.JavaPullUpGenHelperFactory@1c59c26]
+
+        // FIXME
+        System.out.println(instance); // objet
+        System.out.println(language); // JAVA
+        System.out.println("instance for langage : " + instance.forLanguage(language)); // com.intellij.refactoring.memberPullUp.JavaPullUpHelperFactory@1a01125
+        System.out.println("instance for key : " + instance.forKey(language)); // [com.intellij.refactoring.memberPullUp.JavaPullUpHelperFactory@1a01125, com.intellij.refactoring.memberPullUp.JavaPullUpGenHelperFactory@1c59c26]
+
         @Nullable PullUpHelperFactory factory = null;
         for (Object f : instance.forKey(language)) //  FIXME : find a better solution
             {
@@ -279,7 +281,8 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
                    factory = (PullUpHelperFactory) f ;
                else System.out.println ("Found another factory of type " + f.getClass().getName() + ", not used.");
             }
-        //final PullUpGenHelperFactory pullUpGenHelperFactory = instance.forLanguage(language); // to debug(can be inlined)
+
+
         if ( factory == null )  {
                 System.out.println("helper null (convenient PullUpGenHelperFactory not found).");
                 System.out.println(instance); // objet

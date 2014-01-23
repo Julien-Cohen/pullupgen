@@ -237,73 +237,6 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
         }
   }
 
-    /*
-  // FIXME : deplacer vers PullUpProcessor
-  public void moveMembersToBase()
-          throws IncorrectOperationException, GenAnalysisUtils.AmbiguousOverloading, GenAnalysisUtils.MemberNotImplemented {
-    final HashSet<PsiMember> movedMembers = new HashSet<PsiMember>();
-    myMembersAfterMove = new HashSet<PsiMember>();
-
-    // build aux sets
-    for (MemberInfo info : myMembersToMove) {
-      movedMembers.add(info.getMember());
-    }
-
-    // correct private member visibility
-    for (MemberInfo info : myMembersToMove) {
-      if (info.getMember() instanceof PsiClass && info.getOverrides() != null) continue;
-      setCorrectVisibility(movedMembers, info);
-      ChangeContextUtil.encodeContextInfo(info.getMember(), true);
-    }
-
-    final PsiSubstitutor substitutor = upDownSuperClassSubstitutor();    // (rem Julien) a PsiSubstitutor represents a mapping between type parameters and their values
-    //final PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
-
-    // (Julien) compute the set of sister methods (which have all the compatible members)
-    if (sisterClasses == null ) initSisterClasses(myMembersToMove[0]) ;
-    assert (sisterClasses != null);
-
-    for (PsiClass c : sisterClasses) GenBuildUtils.alignParameters(myTargetSuperClass, c, elementFactory);
-
-    // do actual move (for each member to move)
-    for (MemberInfo info : myMembersToMove) {
-
-        move(info, substitutor);
-    }
-
-    ExplicitSuperDeleter explicitSuperDeleter = new ExplicitSuperDeleter();
-    for (PsiMember member : myMembersAfterMove) {
-      member.accept(explicitSuperDeleter);
-    }
-    explicitSuperDeleter.fixSupers();
-
-    final QualifiedThisSuperAdjuster qualifiedThisSuperAdjuster = new QualifiedThisSuperAdjuster();
-    for (PsiMember member : myMembersAfterMove) {
-      member.accept(qualifiedThisSuperAdjuster);
-    }
-
-    ChangeContextUtil.decodeContextInfo(myTargetSuperClass, null, null);
-
-    for (final PsiMember movedMember : myMembersAfterMove) {
-      movedMember.accept(new JavaRecursiveElementWalkingVisitor() {
-        @Override
-        public void visitReferenceExpression(PsiReferenceExpression expression) {
-          final PsiExpression qualifierExpression = expression.getQualifierExpression();
-          if (qualifierExpression != null) {
-            final Boolean preserveQualifier = qualifierExpression.getCopyableUserData(PRESERVE_QUALIFIER);
-            if (preserveQualifier != null && !preserveQualifier) {
-              qualifierExpression.delete();
-              return;
-            }
-          }
-          super.visitReferenceExpression(expression);
-        }
-      });
-      final JavaRefactoringListenerManager listenerManager = JavaRefactoringListenerManager.getInstance(movedMember.getProject());
-      ((JavaRefactoringListenerManagerImpl)listenerManager).fireMemberMoved(mySourceClass, movedMember);
-    }
-  }
-*/
 
     private void doMoveClass(PsiSubstitutor substitutor, MemberInfo info) {
         // (rem Julien) case where the member to pull-up is a class/interface, internal or declared as superclass/interface
@@ -335,14 +268,13 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
 
         LOG.assertTrue(sourceReferenceList != null);
 
-        //System.out.println(mySourceClass + " eq " + sourceReferenceList.getParent() + " : " + mySourceClass.equals(sourceReferenceList.getParent())); // debug  : true on A false on B
 
         // Warning : the member might not be extracted from 'mySourceClass'. This is tested by  mySourceClass.equals(sourceReferenceList.getParent()) .
 
         PsiJavaCodeReferenceElement ref = mySourceClass.equals(sourceReferenceList.getParent()) ?                   // debug : true in the test
                                           RefactoringUtil.removeFromReferenceList(sourceReferenceList, implementedIntf) : // remove returns a copy
                                           (PsiJavaCodeReferenceElement)RefactoringUtil.findReferenceToClass   (sourceReferenceList, implementedIntf).copy();     // Julien : make a copy because will be deleted
-        //System.out.println(ref); // debug   ( "I" in the test)
+
 
         // added Julien
         for (PsiClass c : sisterClasses) {
@@ -485,7 +417,7 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
           myMembersAfterMove.add(movedElement);
 
           if (isOriginalMethodAbstract) {
-            method.delete(); // TODO : do the same in sister classes ?
+            method.delete(); // FIXME : do the same in sister classes ?
           }
         } // (rem Julien) endif
 
