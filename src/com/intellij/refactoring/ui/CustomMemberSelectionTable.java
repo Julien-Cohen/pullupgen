@@ -23,10 +23,11 @@
  * Code Style | Class Templates options (Tools | IDE Options).
  */
 //package com.intellij.refactoring.ui;
-
+package com.intellij.refactoring.ui;
 
 import com.intellij.psi.*;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
+import com.intellij.refactoring.memberPullUp.GenAnalysisUtils;
 import com.intellij.refactoring.ui.MemberSelectionTable;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.ui.ColoredTableCellRenderer;
@@ -67,6 +68,8 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
     setModel(t);                                // julien    (this is problematic)
 
     //begin copy from AbstractMemberSelectionTable
+      // FIXME : Temporarily disabled because of "runtime package" access violation (myAbstractEnabled)
+
     TableColumnModel model = getColumnModel();
     model.getColumn(DISPLAY_NAME_COLUMN).setCellRenderer(new CustomTableRenderer(this));
       { // to be done again (why? because the first time this code is invoked, it acts on the model affected by the first setModel() invocation)
@@ -80,6 +83,7 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
       model.getColumn(ABSTRACT_COLUMN).setMaxWidth(width);
       model.getColumn(ABSTRACT_COLUMN).setPreferredWidth(width);
     }
+
     //end copy
     int canMakeAbstractColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(canMakeAbstractColumnHeader.toCharArray(), 0, canMakeAbstractColumnHeader.length()));
     getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setMaxWidth(canMakeAbstractColumnWidth);
@@ -135,15 +139,15 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
 
 
 
-  void fillAllCanGenMembers(PsiClass sup){
+  public void fillAllCanGenMembers(PsiClass sup){
       for (MemberInfo m : myMemberInfos) fillCanGenMember(m, sup);
   }
 
-  void fillAllDirectAbstractPullupFields(PsiClass s){
+  public void fillAllDirectAbstractPullupFields(PsiClass s){
       for (MemberInfo m : myMemberInfos) fillDirectAbstractPullupField(m, s);
   }
 
-  void fillAllCanMakeAbstractFields(){
+  public void fillAllCanMakeAbstractFields(){
       for (MemberInfo m : myMemberInfos) fillCanMakeAbstractField(m);
   }
 
@@ -202,6 +206,7 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   /* this fills the "can make abstract" checkboxes, and also the "to abstract" checkboxes (indirectly) */
   protected void setCanMakeAbstractColumnValue(MemberInfo memberInfo, ThreeValue b) {
      canMakeAbstractCheckBoxes[getRowForMember(memberInfo)] = b ;
+     System.out.println ("Trying to set " + b + " to row " +  getRowForMember(memberInfo) + " (CustomMemberSelectionTable).") ; // debug
      if (b==ThreeValue.No)  memberInfo.setToAbstract(false);
         else   memberInfo.setToAbstract(true);
   }

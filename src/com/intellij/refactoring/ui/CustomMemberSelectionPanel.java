@@ -23,44 +23,51 @@
  * Code Style | Class Templates options (Tools | IDE Options).
  */
 
+package com.intellij.refactoring.ui;
 
-import com.intellij.refactoring.ui.MemberSelectionPanel;
+import com.intellij.psi.PsiMember;
+import com.intellij.refactoring.ui.AbstractMemberSelectionTable;
+
 import com.intellij.refactoring.util.classMembers.MemberInfo;
-import com.intellij.ui.ScrollPaneFactory;
-import com.intellij.ui.SeparatorFactory;
-import com.intellij.ui.TableUtil;
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
 import java.util.List;
 
-public class CustomMemberSelectionPanel extends JPanel {
-  private final CustomMemberSelectionTable myTable;
+public class CustomMemberSelectionPanel extends MemberSelectionPanelBase<PsiMember, MemberInfo,  AbstractMemberSelectionTable<PsiMember, MemberInfo>> /* CustomMemberSelectionTable> */ {
+  //private final CustomMemberSelectionTable myTable; // TODO (J) : check that
 
   //MemberSelectionPanel p;   // j: for reference, can be deleted
 
   /**
    * @param title if title contains 'm' - it would look and feel as mnemonic
+   * @param table
    */
-  public CustomMemberSelectionPanel(String title, List<MemberInfo> memberInfo, String abstractColumnHeader) {
-    super();
-    System.out.println("creation Custom Panel (debut)");
-    setLayout(new BorderLayout());
+  public CustomMemberSelectionPanel(String title, CustomMemberSelectionTable table) {
 
-    myTable = createMemberSelectionTable(memberInfo, abstractColumnHeader);
-    JScrollPane scrollPane = ScrollPaneFactory.createScrollPane(myTable);
-    add(SeparatorFactory.createSeparator(title, myTable), BorderLayout.NORTH);
-    add(scrollPane, BorderLayout.CENTER);
-    System.out.println("creation Custom Panel (fin)");
+    super(title,table);
   }
+  /*public CustomMemberSelectionPanel(String title, List<MemberInfo> infos, String columnHeader) {
+
+    super(title, new CustomMemberSelectionTable(infos, columnHeader));
+    //System.out.println("creation Custom Panel (debut)");
+    //setLayout(new BorderLayout());
+
+
+    //JScrollPane scrollPane = ScrollPaneFactory.createScrollPane(table);
+    //add(SeparatorFactory.createSeparator(title, table), BorderLayout.NORTH);
+    //add(scrollPane, BorderLayout.CENTER);
+    //System.out.println("creation Custom Panel (fin)");
+  }*/
+
 
   protected CustomMemberSelectionTable createMemberSelectionTable(List<MemberInfo> memberInfo, String abstractColumnHeader) {
     return new CustomMemberSelectionTable(memberInfo, abstractColumnHeader);
   }
 
+  @Override
   public CustomMemberSelectionTable getTable() {
-    return myTable;
+      AbstractMemberSelectionTable<PsiMember, MemberInfo> table = super.getTable();
+      if (table instanceof CustomMemberSelectionTable)
+          return (CustomMemberSelectionTable) table;
+      else throw new Error ("normal table found instead of CustomTable");
   }
 }
