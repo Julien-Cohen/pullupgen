@@ -466,7 +466,6 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
   }
 
     void fillAllAnalyses() {
-        System.out.println("Call to fillAllAnalyses()");
         CustomMemberSelectionTable table = getCustomTable();
         table.fillAllCanGenMembers(getSuperClass());
         table.fillAllDirectAbstractPullupFields(getSuperClass());

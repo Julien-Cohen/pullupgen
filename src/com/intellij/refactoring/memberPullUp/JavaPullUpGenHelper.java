@@ -109,49 +109,6 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
   }
 
 
-// FIXME Deplace vers PullUpProcessor, mais garder du code perso
-/*
-  protected void performRefactoring(UsageInfo[] usages) {
-      try {
-          moveMembersToBase();
-      } catch (GenAnalysisUtils.AmbiguousOverloading e) {
-          throw new IncorrectOperationException(e.toString());
-      } catch (GenAnalysisUtils.MemberNotImplemented e) {
-          throw new IncorrectOperationException(e.toString());
-      }
-      moveFieldInitializations();
-    for (UsageInfo usage : usages) {
-      PsiElement element = usage.getElement();
-      if (element instanceof PsiReferenceExpression) {
-        PsiExpression qualifierExpression = ((PsiReferenceExpression)element).getQualifierExpression();
-        if (qualifierExpression instanceof PsiReferenceExpression && ((PsiReferenceExpression)qualifierExpression).resolve() == mySourceClass) {
-          ((PsiReferenceExpression)qualifierExpression).bindToElement(myTargetSuperClass);
-        }
-      }
-    }
-    ApplicationManager.getApplication().invokeLater(new Runnable() {
-      // @Override
-      public void run() {
-        processMethodsDuplicates();
-      }
-    }, ModalityState.NON_MODAL, myProject.getDisposed());
-  }
-*/
-
-    /*
- @Override
-  public void move(MemberInfo info, PsiSubstitutor substitutor) {
-    if (info.getMember() instanceof PsiMethod) {
-      doMoveMethod(substitutor, info);
-     }
-    else if (info.getMember() instanceof PsiField) {
-      doMoveField(substitutor, info);
-    }
-    else if (info.getMember() instanceof PsiClass) {
-      doMoveClass(substitutor, info);
-    }
-  }
-  */
 
   @Override
   public void move(MemberInfo info, PsiSubstitutor substitutor) {
@@ -1038,18 +995,6 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
       return methodFromSuper == null;
     }
 
-    /*
-    public void fixSupers() throws IncorrectOperationException {
-      final PsiElementFactory factory = JavaPsiFacade.getInstance(myManager.getProject()).getElementFactory();
-      PsiThisExpression thisExpression = (PsiThisExpression) factory.createExpressionFromText("this", null);
-      for (PsiExpression psiExpression : mySupersToDelete) {
-        psiExpression.delete();
-      }
-
-      for (PsiSuperExpression psiSuperExpression : mySupersToChangeToThis) {
-        psiSuperExpression.replace(thisExpression);
-      }
-    }*/
   }
 
   private boolean willBeUsedInSubclass(PsiElement member, PsiClass superclass, PsiClass subclass) {
@@ -1062,39 +1007,4 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
     return false;
   }
 
-  /*
-  public static boolean checkedInterfacesContain(Collection<MemberInfo> memberInfos, PsiMethod psiMethod) {
-    for (MemberInfo memberInfo : memberInfos) {
-      if (memberInfo.isChecked() &&
-          memberInfo.getMember() instanceof PsiClass &&
-          Boolean.FALSE.equals(memberInfo.getOverrides())) {
-        if (((PsiClass)memberInfo.getMember()).findMethodBySignature(psiMethod, true) != null) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
- */
-
-  /*
-  private class PullUpUsageViewDescriptor implements UsageViewDescriptor {
-    public String getProcessedElementsHeader() {
-      return "Pull up members from";
-    }
-
-    @NotNull
-    public PsiElement[] getElements() {
-      return new PsiElement[]{mySourceClass};
-    }
-
-    public String getCodeReferencesText(int usagesCount, int filesCount) {
-      return "Class to pull up members to \"" + RefactoringUIUtil.getDescription(myTargetSuperClass, true) + "\"";
-    }
-
-    public String getCommentReferencesText(int usagesCount, int filesCount) {
-      return null;
-    }
-  }
-  */
 }

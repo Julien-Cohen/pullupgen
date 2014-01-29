@@ -23,17 +23,7 @@ import java.util.Collection;
  * Created by Max Medvedev on 10/3/13
  */
 public interface PullUpGenData extends PullUpData {
-  /*PsiClass getSourceClass();
 
-  PsiClass getTargetClass();
-
-  DocCommentPolicy getDocCommentPolicy();
-
-  Set<PsiMember> getMembersToMove();
-
-  Set<PsiMember> getMovedMembers();
-
-  Project getProject();*/
 
   Collection<PsiClass> getSisterClasses();
 }

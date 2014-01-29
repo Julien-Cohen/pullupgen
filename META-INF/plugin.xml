@@ -17,7 +17,7 @@
   </project-components>
   <change-notes>
       <![CDATA[<p> <ul>
-            <li><b>0.3</b> Improved GUI for pull-up-gen operation.</li>
+            <li><b>0.3</b> IDEA 13 + improved GUI for pull-up-gen operation.</li>
             <li><b>0.2</b> Introduce new type parameters only if needed.</li>
             <li><b>0.1</b> First release, with <ul>
                 <li>pull-up method with generics and </li><li> extract superclass for several classes (automatically selects classes with methods that has been specified). </li></ul></li>

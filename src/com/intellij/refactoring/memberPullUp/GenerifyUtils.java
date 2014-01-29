@@ -246,6 +246,7 @@ public class GenerifyUtils {
 
     }
 
+    // FIXME : not used
     static boolean hasCompatibleMembers(PsiClass c, MemberInfo[] infos){
         for (MemberInfo member: infos){
             PsiMember x = member.getMember();
@@ -281,6 +282,7 @@ public class GenerifyUtils {
 
     }
 
+    // FIXME : not used
     static boolean hasMembers(PsiClass c, MemberInfo[] infos){
         for (MemberInfo member: infos){
             PsiMember x = member.getMember();

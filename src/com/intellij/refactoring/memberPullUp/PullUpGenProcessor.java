@@ -164,37 +164,7 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
     return RefactoringBundle.message("pullUp.command", DescriptiveNameUtil.getDescriptiveName(mySourceClass));
   }
 
-    /*
 
-  public void moveMembersToBase() throws IncorrectOperationException {
-    myMovedMembers = ContainerUtil.newHashSet();
-    myMembersAfterMove = ContainerUtil.newHashSet();
-
-    // build aux sets
-    for (MemberInfo info : myMembersToMove) {
-      myMovedMembers.add(info.getMember());
-    }
-
-    final PsiSubstitutor substitutor = upDownSuperClassSubstitutor();
-
-    for (MemberInfo info : myMembersToMove) {
-      PullUpGenHelper<MemberInfo> processor = getProcessor(info);
-
-      if (!(info.getMember() instanceof PsiClass) || info.getOverrides() == null) {
-        processor.setCorrectVisibility(info);
-        processor.encodeContextInfo(info);
-      }
-
-      processor.move(info, substitutor);
-    }
-
-    for (PsiMember member : myMembersAfterMove) {
-      getProcessor(member).postProcessMember(member);
-
-      final JavaRefactoringListenerManager listenerManager = JavaRefactoringListenerManager.getInstance(myProject);
-      ((JavaRefactoringListenerManagerImpl)listenerManager).fireMemberMoved(mySourceClass, member);
-    }
-  }*/
 
   public void moveMembersToBase()
             throws IncorrectOperationException, GenAnalysisUtils.AmbiguousOverloading, GenAnalysisUtils.MemberNotImplemented {
@@ -269,26 +239,26 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
         final LanguageExtension<PullUpHelperFactory> instance = PullUpGenHelper.INSTANCE; // to debug (can be inlined)
 
         // FIXME
-        System.out.println(instance); // objet
+        /*System.out.println(instance); // objet
         System.out.println(language); // JAVA
         System.out.println("instance for langage : " + instance.forLanguage(language)); // com.intellij.refactoring.memberPullUp.JavaPullUpHelperFactory@1a01125
         System.out.println("instance for key : " + instance.forKey(language)); // [com.intellij.refactoring.memberPullUp.JavaPullUpHelperFactory@1a01125, com.intellij.refactoring.memberPullUp.JavaPullUpGenHelperFactory@1c59c26]
-
+*/
         @Nullable PullUpHelperFactory factory = null;
         for (Object f : instance.forKey(language)) //  FIXME : find a better solution
             {
                if (f instanceof JavaPullUpGenHelperFactory)
                    factory = (PullUpHelperFactory) f ;
-               else System.out.println ("Found another factory of type " + f.getClass().getName() + ", not used.");
+               /* else System.out.println ("Found another factory of type " + f.getClass().getName() + ", not used."); */
             }
 
 
         if ( factory == null )  {
-                System.out.println("helper null (convenient PullUpGenHelperFactory not found).");
+                /* System.out.println("helper null (convenient PullUpGenHelperFactory not found).");
                 System.out.println(instance); // objet
                 System.out.println(language); // JAVA
                 System.out.println(instance.forLanguage(language)); // null
-                System.out.println(instance.forKey(language)); // []
+                System.out.println(instance.forKey(language)); // [] */
                 throw new Error ("helper null (convenient PullUpGenHelperFactory not found).");
         }
 

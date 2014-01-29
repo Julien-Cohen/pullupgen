@@ -42,7 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 public class CustomMemberSelectionTable extends MemberSelectionTable {
-//public class CustomMemberSelectionTable extends AbstractMemberSelectionTable<PsiMember, MemberInfo> {
+
 
   protected final Boolean[] directAbstractPullupCheckBoxes;
   protected final Boolean[] canGenerifyCheckBoxes ;
@@ -52,7 +52,9 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   protected static String canMakeAbstractColumnHeader = "can make abstract";
   protected final ThreeValue[] canMakeAbstractCheckBoxes ;
 
-  enum ThreeValue { YesGenerics, YesPlain , No}
+  enum ThreeValue {
+      YesGenerics {public String toString(){return "Yes (with generics)";}},
+      YesPlain    {public String toString(){return "Yes (without generics)";}} , No}
 
   public CustomMemberSelectionTable(final List<MemberInfo> memberInfos, String abstractColumnHeader) {
     this(memberInfos, null, abstractColumnHeader);
@@ -77,7 +79,7 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
         model.getColumn(CHECKED_COLUMN).setMinWidth(checkBoxWidth);
 
       }
-    if (myAbstractEnabled) { // to be done again (why?)
+    if (myAbstractEnabled) { // FIXME to be done again (why?)
       int width = (int)(1.3 * getFontMetrics(getFont()).charsWidth(myAbstractColumnHeader.toCharArray(), 0, myAbstractColumnHeader.length()));
       model.getColumn(ABSTRACT_COLUMN).setMaxWidth(width);
       model.getColumn(ABSTRACT_COLUMN).setPreferredWidth(width);
@@ -88,7 +90,7 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
     getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setMaxWidth(canMakeAbstractColumnWidth);
     getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setPreferredWidth(canMakeAbstractColumnWidth);
 
-    System.out.println("creation Custom Table (fin)");
+
 
   }
 
@@ -205,7 +207,6 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   /* this fills the "can make abstract" checkboxes, and also the "to abstract" checkboxes (indirectly) */
   protected void setCanMakeAbstractColumnValue(MemberInfo memberInfo, ThreeValue b) {
      canMakeAbstractCheckBoxes[getRowForMember(memberInfo)] = b ;
-     System.out.println ("Trying to set " + b + " to row " +  getRowForMember(memberInfo) + " (CustomMemberSelectionTable).") ; // debug
      if (b==ThreeValue.No)  memberInfo.setToAbstract(false);
         else   memberInfo.setToAbstract(true);
   }
@@ -235,11 +236,9 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
         public GenTableModel(CustomMemberSelectionTable table) {
             super(table);      //j
             myTableCopy = table;
-            System.out.println("creation Custom MyTableModel (fin)"); // DEBUG
         }
 
         public int getColumnCount() {
-            System.out.println("get column count (MyTableModel)");   // DEBUG
             if (myTableCopy.myAbstractEnabled) {
                 return (4);         //julien
             }

@@ -142,7 +142,6 @@ public class GenAnalysisUtils {
 
 
     public static boolean hasMembers(PsiClass c, MemberInfo[] infos){
-        System.out.println("invocation of hasMembers(" + c + ",...)");
         for (MemberInfo member: infos){
             PsiMember x = member.getMember();
 
@@ -346,12 +345,12 @@ public class GenAnalysisUtils {
                 return findDirectSubClassesWithImplements((PsiClass)m, superClass);}
 
         else if (m instanceof PsiClass) {
-                 throw new IncorrectOperationException("implement me : pull up class " + m);}
+                 throw new IncorrectOperationException("implement me : pull up class " + m);} // FIXME
 
         else if (m instanceof PsiField) {
-                throw new IncorrectOperationException("implement me : pull up field");}
+                throw new IncorrectOperationException("implement me : pull up field");} // FIXME
 
-        else    throw new IncorrectOperationException("cannot handle this kind of member:" + m);
+        else    throw new IncorrectOperationException("cannot handle this kind of member:" + m); // FIXME
     }
 
     // Must find an implementation in each direct subclass.
@@ -421,7 +420,7 @@ public class GenAnalysisUtils {
               if (!found) return false;
             }
             else if (x instanceof PsiClass) {throw new IncorrectOperationException("(hascompatiblemembers) don't know what to do with that class : " + x);}
-            else throw new IncorrectOperationException("this kind of member not handled yet : " + x);
+            else throw new IncorrectOperationException("this kind of member not handled yet : " + x);  // FIXME
 
 
         }
