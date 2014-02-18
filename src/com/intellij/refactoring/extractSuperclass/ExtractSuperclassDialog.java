@@ -19,7 +19,7 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
-package com.intellij.refactoring.memberPullUp; // (J) : to be able to acces protected members of PullUpDialogBase (myMemberSelectionPanel).
+package com.intellij.refactoring.extractSuperclass; // (J) : to be able to acces protected members of PullUpDialogBase (myMemberSelectionPanel).
 
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
@@ -32,6 +32,7 @@ import com.intellij.refactoring.classMembers.MemberInfoChange;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
 import com.intellij.refactoring.extractSuperclass.ExtractSuperBaseProcessor;
 import com.intellij.refactoring.extractSuperclass.JavaExtractSuperBaseDialog;
+import com.intellij.refactoring.memberPullUp.PullUpProcessor;
 import com.intellij.refactoring.ui.MemberSelectionPanel;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.classMembers.InterfaceContainmentVerifier;

@@ -7,7 +7,7 @@
  * To change this template use File | Settings | File Templates.
  */
 
-package com.intellij.refactoring.memberPullUp;
+package com.intellij.refactoring.genUtils;
 
 import com.intellij.psi.*;
 import com.intellij.util.IncorrectOperationException;
@@ -23,7 +23,7 @@ public class GenSubstitutionUtils {
     /* Compute the antiunification for a list of methods. */
     /* Return the elements of the method profile (return type or parameter types) to be generified, with the corresponding type variable to replace each element. */
     /* Also modifies the dependent-substitution that says how each class instantiates the type parameter of its (direct?) superclass */
-    static ParamSubstitution antiunify(List<PsiMethod> lm, /* TODO : can lm be empty? */
+    public static ParamSubstitution antiunify(List<PsiMethod> lm, /* TODO : can lm be empty? */
                                        DependentSubstitution theSubstitution, /* this parameter indicated the previously existing intanciation of type variables (from extends statements), for potential reuse. */
                                                                           /* This parameter can be modified (when new type parameters have to be introduced)   */
                                                                           String baseNameForTypeVariables,
@@ -104,7 +104,7 @@ public class GenSubstitutionUtils {
     }
 
     // returns the mappings that are in m1 but not in m2
-   static DependentSubstitution difference(DependentSubstitution m1, DependentSubstitution m2){
+   public static DependentSubstitution difference(DependentSubstitution m1, DependentSubstitution m2){
        DependentSubstitution result = new DependentSubstitution() ;
        for(PsiTypeParameter t:m1.keySet()){
            if (!m2.containsKey(t)) result.put(t, m1.get(t));
@@ -112,7 +112,7 @@ public class GenSubstitutionUtils {
        return result;
    }
 
-    static DependentSubstitution computeCurrentSub(PsiClass superclass, Collection<PsiClass> sisterClasses, PsiElementFactory factory){
+    public static DependentSubstitution computeCurrentSub(PsiClass superclass, Collection<PsiClass> sisterClasses, PsiElementFactory factory){
         final DependentSubstitution result = new  DependentSubstitution ();
 
         final PsiTypeParameter[]    a      = superclass.getTypeParameters();

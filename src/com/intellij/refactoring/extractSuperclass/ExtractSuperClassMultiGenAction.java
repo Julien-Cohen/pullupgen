@@ -19,21 +19,25 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
-package com.intellij.refactoring.memberPullUp;
+package com.intellij.refactoring.extractSuperclass;
 
 import com.intellij.lang.refactoring.RefactoringSupportProvider;
 import com.intellij.refactoring.RefactoringActionHandler;
 import com.intellij.refactoring.actions.ExtractSuperActionBase;
 import org.jetbrains.annotations.NotNull;
 
-public class ExtractSuperClassMultiAction extends ExtractSuperActionBase {
-  
-  public ExtractSuperClassMultiAction() {
+
+public class ExtractSuperClassMultiGenAction extends ExtractSuperActionBase {
+
+    public ExtractSuperClassMultiGenAction() {
     setInjectedContext(true);
   }
 
   @Override
   protected RefactoringActionHandler getRefactoringHandler(@NotNull RefactoringSupportProvider supportProvider) {
-    return new ExtractSuperclassMultiHandler();
+      ExtractSuperclassMultiHandler h = new ExtractSuperclassMultiHandler();
+      h.myUseGenericUnification = true ;   // this asks for generic unification: methods with the same name but different types can be considered to override a same method (with a generic type).
+      return h;
   }
+
 }

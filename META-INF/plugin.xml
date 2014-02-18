@@ -42,11 +42,11 @@
               description="Pull up method as abstract (insert type parameter)">
           <add-to-group group-id="RefactoringMenu" anchor="last"/>
       </action>
-      <action id="ExtractSuperClassMulti.ExtractSuperClass" class="com.intellij.refactoring.memberPullUp.ExtractSuperClassMultiAction"
+      <action id="ExtractSuperClassMulti.ExtractSuperClass" class="com.intellij.refactoring.extractSuperclass.ExtractSuperClassMultiAction"
               text="Extract Superclass (multi)" description="Extract a superclass from several classes">
           <add-to-group group-id="RefactoringMenu" anchor="last"/>
       </action>
-      <action id="ExtractSuperClassMulti.ExtractSuperClassGen" class="com.intellij.refactoring.memberPullUp.ExtractSuperClassMultiGenAction"
+      <action id="ExtractSuperClassMulti.ExtractSuperClassGen" class="com.intellij.refactoring.extractSuperclass.ExtractSuperClassMultiGenAction"
               text="Extract Superclass (multi+gen)"
               description="Extract a superclass from several classes, possibly with generification">
           <add-to-group group-id="RefactoringMenu" anchor="last"/>

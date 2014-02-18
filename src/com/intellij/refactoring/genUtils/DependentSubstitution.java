@@ -1,4 +1,4 @@
-package com.intellij.refactoring.memberPullUp;
+package com.intellij.refactoring.genUtils;
 
 //import com.intellij.openapi.util.Pair;
 import com.intellij.psi.PsiClass;

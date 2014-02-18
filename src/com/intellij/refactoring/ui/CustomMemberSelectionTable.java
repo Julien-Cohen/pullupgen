@@ -27,7 +27,7 @@ package com.intellij.refactoring.ui;
 
 import com.intellij.psi.*;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
-import com.intellij.refactoring.memberPullUp.GenAnalysisUtils;
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;
 import com.intellij.refactoring.ui.MemberSelectionTable;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.ui.ColoredTableCellRenderer;

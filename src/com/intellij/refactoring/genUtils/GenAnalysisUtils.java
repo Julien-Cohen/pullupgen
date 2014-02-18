@@ -1,4 +1,4 @@
-package com.intellij.refactoring.memberPullUp;
+package com.intellij.refactoring.genUtils;
 
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -140,7 +140,7 @@ public class GenAnalysisUtils {
     }
 
 
-
+// FIXME : method not used?
     public static boolean hasMembers(PsiClass c, MemberInfo[] infos){
         for (MemberInfo member: infos){
             PsiMember x = member.getMember();
@@ -312,6 +312,8 @@ public class GenAnalysisUtils {
     public static Collection<PsiClass> findDirectSubClasses(@NotNull PsiClass superClass) {
         return ClassInheritorsSearch.search(superClass, false).findAll();     // use default scope
     }
+
+    // FIXME : not used?
     public static Collection<PsiClass> findDirectSubClassesInDirectory(@NotNull PsiClass superClass, PsiDirectory directory) {
         return ClassInheritorsSearch.search(superClass, GlobalSearchScopes.directoryScope(directory, false), false).findAll();
     }
@@ -380,7 +382,7 @@ public class GenAnalysisUtils {
 
 
     /* see definition of compatibility at the beginning of the file */
-    static List<PsiMethod> findCompatibleMethods(PsiMethod method, Collection<PsiClass> sisterClasses) {
+    public static List<PsiMethod> findCompatibleMethods(PsiMethod method, Collection<PsiClass> sisterClasses) {
         final List<PsiMethod> sisterMethods = new LinkedList<PsiMethod>();
         for (PsiClass c:sisterClasses){
               final List<PsiMethod> localSisterMethods = findCompatibleMethodsInClass(method, c);

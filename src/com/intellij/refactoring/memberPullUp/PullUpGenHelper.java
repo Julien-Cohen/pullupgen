@@ -18,6 +18,7 @@ package com.intellij.refactoring.memberPullUp;
 import com.intellij.lang.LanguageExtension;
 import com.intellij.psi.*;
 import com.intellij.refactoring.classMembers.MemberInfoBase;
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 
 import java.util.Collection;

@@ -32,6 +32,7 @@ import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.DelegatingMemberInfoModel;
 import com.intellij.refactoring.classMembers.MemberInfoChange;
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;
 import com.intellij.refactoring.ui.AbstractMemberSelectionTable;
 import com.intellij.refactoring.ui.CustomMemberSelectionPanel;
 import com.intellij.refactoring.ui.CustomMemberSelectionTable;

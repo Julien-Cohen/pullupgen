@@ -42,6 +42,8 @@ import com.intellij.psi.util.TypeConversionUtil;
 import com.intellij.refactoring.BaseRefactoringProcessor;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoBase;
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;
+import com.intellij.refactoring.genUtils.GenBuildUtils;
 import com.intellij.refactoring.listeners.JavaRefactoringListenerManager;
 import com.intellij.refactoring.listeners.impl.JavaRefactoringListenerManagerImpl;
 import com.intellij.refactoring.util.DocCommentPolicy;

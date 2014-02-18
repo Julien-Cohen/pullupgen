@@ -1,4 +1,4 @@
-package com.intellij.refactoring.memberPullUp;
+package com.intellij.refactoring.genUtils;
 
 import com.intellij.psi.*;
 import com.intellij.util.IncorrectOperationException;
@@ -26,10 +26,10 @@ import java.util.Map;
 
 
 
-class GenBuildUtils {
+public class GenBuildUtils {
 
 
-    static void generifyAbstractMethod(PsiMethod m, GenSubstitutionUtils.ParamSubstitution lp){
+    public static void generifyAbstractMethod(PsiMethod m, GenSubstitutionUtils.ParamSubstitution lp){
         final PsiElementFactory factory = JavaPsiFacade.getElementFactory(m.getProject());
         
         for (Integer pos : lp.keySet()){
@@ -56,9 +56,9 @@ class GenBuildUtils {
 
 
 
-    static void updateExtendsStatementsInSisterClasses(
+    public static void updateExtendsStatementsInSisterClasses(
             DependentSubstitution megasub,
-            PsiClass superClass,
+                        PsiClass superClass,
             PsiElementFactory factory) {
 
 
@@ -72,7 +72,7 @@ class GenBuildUtils {
     }
 
     /** Replace "class A extends S" by "class A extends S < Object >" when S has a type parameter */
-    static void alignParameters(PsiClass superclass, PsiClass toBeAligned, PsiElementFactory factory){
+    public static void alignParameters(PsiClass superclass, PsiClass toBeAligned, PsiElementFactory factory){
         final int l_super      = superclass.getTypeParameters().length;
         final int l_class      = toBeAligned.getTypeParameters().length;
         final PsiType ob = factory.createTypeFromText("Object", null);

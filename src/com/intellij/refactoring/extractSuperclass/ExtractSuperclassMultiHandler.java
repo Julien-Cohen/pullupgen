@@ -19,7 +19,7 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
-package com.intellij.refactoring.memberPullUp;
+package com.intellij.refactoring.extractSuperclass;
 
 import com.intellij.history.LocalHistory;
 import com.intellij.history.LocalHistoryAction;

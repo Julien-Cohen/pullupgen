@@ -1,4 +1,4 @@
-package com.intellij.refactoring.memberPullUp;
+package com.intellij.refactoring.genUtils;
 
 import com.intellij.psi.*;
 import com.intellij.psi.search.SearchScope;
