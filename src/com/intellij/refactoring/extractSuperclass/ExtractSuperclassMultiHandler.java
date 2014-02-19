@@ -52,7 +52,7 @@ import javax.swing.*;
 import java.util.List;
 
 
-public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, ExtractSuperclassDialog.Callback, ElementsHandler {
+public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, ExtractSuperclassMultiDialog.Callback, ElementsHandler {
   private static final Logger LOG = Logger.getInstance("#com.intellij.refactoring.extractSuperclassMulti.ExtractSuperclassMultiHandler");
 
   public static final String REFACTORING_NAME = RefactoringBundle.message("extract.superclass.title");
@@ -112,8 +112,9 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
       }
     }, false);
 
-    final ExtractSuperclassDialog dialog =
-      new ExtractSuperclassDialog(project, mySubclass, memberInfos, ExtractSuperclassMultiHandler.this);
+    final ExtractSuperclassMultiDialog dialog =
+      //new ExtractSuperclassDialog(project, mySubclass, memberInfos, ExtractSuperclassMultiHandler.this, myUseGenericUnification);
+      new ExtractSuperclassMultiDialog(project, mySubclass, memberInfos, ExtractSuperclassMultiHandler.this, myUseGenericUnification);
     dialog.show();
     if (!dialog.isOK() || !dialog.isExtractSuperclass()) return;
 
@@ -130,7 +131,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
 
   }
 
-  public boolean checkConflicts(final ExtractSuperclassDialog dialog) {
+  public boolean checkConflicts(final ExtractSuperclassMultiDialog dialog) {
     final MemberInfo[] infos = ArrayUtil.toObjectArray(dialog.getSelectedMemberInfos(), MemberInfo.class);
     final PsiDirectory targetDirectory = dialog.getTargetDirectory();
     final PsiPackage targetPackage;
@@ -152,7 +153,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
   }
 
   // invoked inside Command and Atomic action
-  private void doRefactoring(final Project project, final PsiClass subclass, final ExtractSuperclassDialog dialog) {
+  private void doRefactoring(final Project project, final PsiClass subclass, final ExtractSuperclassMultiDialog dialog) {
 
     final String superclassName = dialog.getExtractedSuperName();
     final PsiDirectory targetDirectory = dialog.getTargetDirectory();

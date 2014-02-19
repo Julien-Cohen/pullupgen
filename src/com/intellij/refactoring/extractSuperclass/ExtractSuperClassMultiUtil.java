@@ -67,37 +67,49 @@ public class ExtractSuperClassMultiUtil {
                                                 final DocCommentPolicy javaDocPolicy,
                                                 final boolean useGenericUnification)
     throws IncorrectOperationException {    
-      final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findDirectSubClassesInDirectory(subclass.getSuperClass(), GenAnalysisUtils.getContainingDirectory(subclass));  // rem : in extract super-class, we are only interested in classes at the same level. For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
+      final Collection<PsiClass> sisterClasses = getSisterClassesInDirectory(subclass);  // rem : in extract super-class, we are only interested in classes at the same level. For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
       final String packageName = ((PsiJavaFile)subclass.getContainingFile()).getPackageName();
 
-      final Collection<PsiClass> selectedSisterClasses = new Vector<PsiClass>();
-
-
-      // filter sister classes which have the selected members
-      if (!useGenericUnification){
-        for (PsiClass c : sisterClasses){
-         if (GenAnalysisUtils.hasMembers(c, selectedMemberInfos)) selectedSisterClasses.add(c);
-        }
-      }
-      else {
-        for (PsiClass c : sisterClasses){
-            try {
-                if (GenAnalysisUtils.hasCompatibleMembers(c, selectedMemberInfos)) selectedSisterClasses.add(c);
-            } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
-                throw new IncorrectOperationException(ambiguousOverloading.toString()) ;
-            }
-        }
-      }
+      final Collection<PsiClass> selectedSisterClasses = filterSisterClasses(Arrays.asList(selectedMemberInfos), useGenericUnification, sisterClasses);
 
       if (selectedSisterClasses.isEmpty()) {
           throw new IncorrectOperationException ("Internal error: no convenient class found (in extractSuperClassMulti).");
       }
 
-
       return extractSuperClass(project, targetDirectory, superclassName, selectedSisterClasses, selectedMemberInfos, javaDocPolicy, useGenericUnification);
   }
 
-  // Modified (Julien)
+  // Filter sister classes which have the selected members
+  public static Collection<PsiClass> filterSisterClasses(Iterable<MemberInfo> selectedMemberInfos, boolean useGenericUnification, Collection<PsiClass> sisterClasses) {
+        Collection<PsiClass> selectedClasses = new Vector();
+
+        if (!useGenericUnification){
+          for (PsiClass c : sisterClasses){
+           if (GenAnalysisUtils.hasMembers(c, selectedMemberInfos)) selectedClasses.add(c);
+           }
+        }
+
+        else {
+          for (PsiClass c : sisterClasses){
+              try {
+                  if (GenAnalysisUtils.hasCompatibleMembers(c, selectedMemberInfos))
+                       selectedClasses.add(c);
+              } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
+                  throw new IncorrectOperationException(ambiguousOverloading.toString()) ;
+              }
+          }
+        }
+
+        return selectedClasses;
+  }
+
+
+  // Julien
+  public static Collection<PsiClass> getSisterClassesInDirectory(PsiClass subclass) {
+        return GenAnalysisUtils.findDirectSubClassesInDirectory(subclass.getSuperClass(), GenAnalysisUtils.getContainingDirectory(subclass));
+  }
+
+    // Modified (Julien)
   public static PsiClass extractSuperClass(final Project project,
                                            final PsiDirectory targetDirectory,
                                            final String superclassName,

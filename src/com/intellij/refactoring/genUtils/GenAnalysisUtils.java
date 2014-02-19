@@ -141,7 +141,7 @@ public class GenAnalysisUtils {
 
 
 // FIXME : method not used?
-    public static boolean hasMembers(PsiClass c, MemberInfo[] infos){
+    public static boolean hasMembers(PsiClass c, Iterable<MemberInfo> infos){
         for (MemberInfo member: infos){
             PsiMember x = member.getMember();
 
@@ -400,7 +400,7 @@ public class GenAnalysisUtils {
 
 
     /* see def for compatibility at beginiing of this file : same name + anti-unifiable */
-    public static boolean hasCompatibleMembers(PsiClass c, MemberInfo[] infos) throws AmbiguousOverloading {
+    public static boolean hasCompatibleMembers(PsiClass c, Iterable<MemberInfo> infos) throws AmbiguousOverloading {
         boolean ambiguity = false ;
         PsiClass ambiguityclass = null ;
         PsiMember ambiguitymember = null ;

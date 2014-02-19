@@ -19,7 +19,7 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
-package com.intellij.refactoring.extractSuperclass; // (J) : to be able to acces protected members of PullUpDialogBase (myMemberSelectionPanel).
+package com.intellij.refactoring.extractSuperclass;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
@@ -30,21 +30,23 @@ import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoChange;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
-import com.intellij.refactoring.extractSuperclass.ExtractSuperBaseProcessor;
-import com.intellij.refactoring.extractSuperclass.JavaExtractSuperBaseDialog;
 import com.intellij.refactoring.memberPullUp.PullUpProcessor;
 import com.intellij.refactoring.ui.MemberSelectionPanel;
+import com.intellij.refactoring.ui.ShortClassCellRenderer;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.classMembers.InterfaceContainmentVerifier;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.refactoring.util.classMembers.UsesAndInterfacesDependencyMemberInfoModel;
+import com.intellij.ui.SeparatorFactory;
+import com.intellij.ui.components.JBList;
 import com.intellij.util.ArrayUtil;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.Collection;
 import java.util.List;
 
-class ExtractSuperclassDialog extends JavaExtractSuperBaseDialog {
+class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
   private final InterfaceContainmentVerifier myContainmentVerifier = new InterfaceContainmentVerifier() {
     public boolean checkedInterfacesContain(PsiMethod psiMethod) {
       return PullUpProcessor.checkedInterfacesContain(myMemberInfos, psiMethod);
@@ -52,14 +54,17 @@ class ExtractSuperclassDialog extends JavaExtractSuperBaseDialog {
   };
 
   public interface Callback {
-    boolean checkConflicts(ExtractSuperclassDialog dialog);
+    boolean checkConflicts(ExtractSuperclassMultiDialog dialog);
   }
+
+  final boolean withGenerification;
 
   private final Callback myCallback;
 
-  public ExtractSuperclassDialog(Project project, PsiClass sourceClass, List<MemberInfo> selectedMembers, Callback callback) {
+  public ExtractSuperclassMultiDialog(Project project, PsiClass sourceClass, List<MemberInfo> selectedMembers, Callback callback, boolean generification) {
     super(project, sourceClass, selectedMembers, ExtractSuperclassMultiHandler.REFACTORING_NAME);
     myCallback = callback;
+    withGenerification=generification;
     init();
   }
 
@@ -99,15 +104,61 @@ class ExtractSuperclassDialog extends JavaExtractSuperBaseDialog {
         public Boolean isFixedAbstract(MemberInfo member) {
           return Boolean.TRUE;
         }
+
+        // JULIEN : to update the sister classes when a checbox is modified by the user
+        @Override
+        public void memberInfoChanged(MemberInfoChange event){
+            super.memberInfoChanged(event);
+            updateSisterClassDisplay();
+        }
       };
     memberInfoModel.memberInfoChanged(new MemberInfoChange<PsiMember, MemberInfo>(myMemberInfos));
     memberSelectionPanel.getTable().setMemberInfoModel(memberInfoModel);
     memberSelectionPanel.getTable().addMemberInfoChangeListener(memberInfoModel);
 
-    panel.add(myDocCommentPanel, BorderLayout.EAST);
 
+    JPanel eastPanel = new JPanel(new BorderLayout());
+    panel.add (eastPanel, BorderLayout.EAST);
+
+    eastPanel.add(myDocCommentPanel, BorderLayout.NORTH);
+
+    // new
+    eastPanel.add(createSisterPanel(), BorderLayout.SOUTH);
     return panel;
   }
+
+  // to display the list of sister classes.
+  JList mySisterClassList = new JBList();
+
+  // new
+  protected JPanel createSisterPanel() {
+      JPanel thePanel = new JPanel(new BorderLayout());
+      mySisterClassList.setCellRenderer(new ShortClassCellRenderer(mySisterClassList.getCellRenderer()));
+      thePanel.add(SeparatorFactory.createSeparator("Future sub-classes", mySisterClassList), BorderLayout.NORTH);
+      thePanel.add(mySisterClassList, BorderLayout.CENTER);
+      //updateSisterClassDisplay(getSisterClasses());
+      updateSisterClassDisplay();
+      return thePanel;
+  }
+
+
+  // Julien
+  protected Collection<PsiClass> getSisterClasses() {
+        return ExtractSuperClassMultiUtil.getSisterClassesInDirectory(mySourceClass);
+  }
+
+
+  //Julien
+  void updateSisterClassDisplay(Collection<PsiClass> l){
+      mySisterClassList.setListData(l.toArray());
+  }
+
+  //Julien
+  void updateSisterClassDisplay(){
+      Collection<PsiClass> l = ExtractSuperClassMultiUtil.filterSisterClasses(getSelectedMemberInfos(), withGenerification, getSisterClasses());
+      updateSisterClassDisplay(l);
+  }
+
 
   @Override
   protected String getDocCommentPanelName() {

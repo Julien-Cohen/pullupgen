@@ -19,7 +19,7 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
-package com.intellij.refactoring.memberPullUp; // (J) : to be able to acces protected members of PullUpDialogBase (myMemberSelectionPanel).
+package com.intellij.refactoring.memberPullUp;
 
 import com.intellij.openapi.help.HelpManager;
 import com.intellij.openapi.project.Project;
@@ -33,17 +33,14 @@ import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.DelegatingMemberInfoModel;
 import com.intellij.refactoring.classMembers.MemberInfoChange;
 import com.intellij.refactoring.genUtils.GenAnalysisUtils;
-import com.intellij.refactoring.ui.AbstractMemberSelectionTable;
-import com.intellij.refactoring.ui.CustomMemberSelectionPanel;
-import com.intellij.refactoring.ui.CustomMemberSelectionTable;
-import com.intellij.refactoring.ui.ClassCellRenderer;
-import com.intellij.refactoring.ui.DocCommentPanel;
+import com.intellij.refactoring.ui.*;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringHierarchyUtil;
 import com.intellij.refactoring.util.classMembers.InterfaceContainmentVerifier;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.refactoring.util.classMembers.MemberInfoStorage;
 import com.intellij.refactoring.util.classMembers.UsesAndInterfacesDependencyMemberInfoModel;
+import com.intellij.ui.SeparatorFactory;
 import com.intellij.ui.components.JBList;
 import com.intellij.usageView.UsageViewUtil;
 import com.intellij.util.ui.UIUtil;
@@ -56,9 +53,6 @@ import java.awt.event.ItemListener;
 import java.util.Collection;
 import java.util.List;
 
-//import com.intellij.refactoring.ui.*;
-
-//import static com.intellij.refactoring.ui.AbstractMemberSelectionTable.MyTableModel;
 
 /**
  * @author dsl
@@ -86,7 +80,6 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
   private static final String PULL_UP_STATISTICS_KEY = "pull.up##";
 
   //Julien : to display the list of sister classes.
-
   JList mySisterClassList;
 
 //  static CustomMemberInfo convert (MemberInfo i){}
@@ -230,17 +223,14 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
     });
   }
 
+    // new (julien)    (based on the handling of myClassCombo)
     protected void createSisterPanel(JPanel panel, GridBagConstraints gbConstraints) {
-        // new (julien)    (based on the handling of myClassCombo)
         GridBagConstraints sisgbConstraints = (GridBagConstraints) gbConstraints.clone();
-        final JLabel sisclassListLabel = new JLabel();
         sisgbConstraints.gridy=0;
         sisgbConstraints.gridx=1;
-        panel.add(sisclassListLabel, sisgbConstraints);
+        panel.add(SeparatorFactory.createSeparator("Other classes to be modified", mySisterClassList), sisgbConstraints);
         mySisterClassList = new JBList();
-        mySisterClassList.setCellRenderer(new ClassCellRenderer(mySisterClassList.getCellRenderer()));  // from (2)
-        sisclassListLabel.setText("Other classes to be modified:");
-        sisclassListLabel.setLabelFor(mySisterClassList);
+        mySisterClassList.setCellRenderer(new ShortClassCellRenderer(mySisterClassList.getCellRenderer()));  // from (2)
         sisgbConstraints.gridy++;   // increment the target position before adding
         panel.add(mySisterClassList, sisgbConstraints);
         setSisterClassDisplay(); // cannot be done much earlier because myClassCombo must be initialized.
@@ -278,16 +268,6 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
   }
 
 
-  //private void updateMemberInfo() {
-   // final PsiClass targetClass = (PsiClass) myClassCombo.getSelectedItem();
-    //myMemberInfos = myMemberInfoStorage.getIntermediateMemberInfosList(targetClass);
-    ///*Set duplicate = myMemberInfoStorage.getDuplicatedMemberInfos(targetClass);
-    //for (Iterator iterator = duplicate.getSectionsIterator(); getSectionsIterator.hasNext();) {
-    //  ((MemberInfo) iterator.next()).setChecked(false);
-    //}*/
-  //}
-
-
   protected void doAction() {
     if (!myCallback.checkConflicts(this)) return;
     JavaRefactoringSettings.getInstance().PULL_UP_MEMBERS_JAVADOC = myJavaDocPanel.getPolicy();
@@ -312,12 +292,6 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
       final CustomMemberSelectionPanel customMemberSelectionPanel =
             new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), customTable /*, RefactoringBundle.message("make.abstract") */);
 
-    /*MemberSelectionPanelBase<PsiMember, MemberInfo, CustomMemberSelectionTable> tmp0 = customMemberSelectionPanel ; */
-
-    /*MemberSelectionPanelBase<PsiMember, MemberInfo, MemberSelectionTable > tmp1 = tmp0;
-
-    MemberSelectionPanelBase<PsiMember, MemberInfo, AbstractMemberSelectionTable<PsiMember, MemberInfo>> tmp = tmp1 ;*/
-
     myMemberSelectionPanel = customMemberSelectionPanel; // Julien : use custom panel for abstract column
     myMemberInfoModel = new MyMemberInfoModel();
     myMemberInfoModel.memberInfoChanged(new MemberInfoChange<PsiMember, MemberInfo>(myMemberInfos));
@@ -332,18 +306,13 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
 
 
   protected CustomMemberSelectionTable getCustomTable(){ // FIXME
-      /*AbstractMemberSelectionTable<PsiMember, MemberInfo> t = myMemberSelectionPanel.getTable();
-      if (t instanceof CustomMemberSelectionTable)
-            return (CustomMemberSelectionTable) t;
-      else throw new Error ("Custom Table not found (found normal table instead).");*/
+
       return myMemberSelectionPanel.getTable();
   }
 
   @Override
   protected void addCustomElementsToCentralPanel(JPanel panel) { // TODO (J) : use that kind of method to add the sister panel
-/*
-    myMemberSelectionPanel = new CustomMemberSelectionPanel(RefactoringBundle.message("members.to.be.pulled.up"), createMemberSelectionTable(myMemberInfos)); // Julien : use custom panel for abstract column
-*/
+
     myJavaDocPanel = new DocCommentPanel(RefactoringBundle.message("javadoc.for.abstracts"));
     myJavaDocPanel.setPolicy(JavaRefactoringSettings.getInstance().PULL_UP_MEMBERS_JAVADOC);
     boolean hasJavadoc = false; // from Anna's commit Apr, 10 2012
@@ -356,16 +325,8 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
     }
     UIUtil.setEnabled(myJavaDocPanel, hasJavadoc, true);
     panel.add(myJavaDocPanel, BorderLayout.EAST);
-    //return panel;
+
   }
-
-  //private final InterfaceContainmentVerifier myInterfaceContainmentVerifier =
-  //  new InterfaceContainmentVerifier() {
-  //    public boolean checkedInterfacesContain(PsiMethod psiMethod) {
-  //      return JavaPullUpGenHelper.checkedInterfacesContain(myMemberInfos, psiMethod);
-  //    }
-  //  };
-
   @Override
   protected CustomMemberSelectionTable createMemberSelectionTable(List<MemberInfo> infos) {
    return new CustomMemberSelectionTable(infos, RefactoringBundle.message("make.abstract"));
