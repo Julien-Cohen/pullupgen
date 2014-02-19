@@ -120,13 +120,13 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   }
 
   private static boolean computeCanDirectAbstractPullupField(PsiClass s, PsiMember m) {
-        final boolean result ;
+
         if (m instanceof PsiMethod){
-            PsiMethod method = (PsiMethod) m ; // cannot fail
-            result = (GenAnalysisUtils.checkSubClassesHaveSameMethod(method, s)) ;
+            return GenAnalysisUtils.checkSubClassesHaveSameMethod((PsiMethod) m, s) ;
         }
-        else result = false ;
-        return result;
+        else // FIXME : what about other sorts of memebers?
+            return false ;
+
   }
 
 

@@ -65,11 +65,9 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
   private final PsiClass mySourceClass;
   private final PsiClass myTargetSuperClass;
   private final boolean myIsTargetInterface;
-  //private final MemberInfo[] myMembersToMove;
   private final DocCommentPolicy myJavaDocPolicy;
   private Set<PsiMember> myMembersAfterMove ; // Set of members that have been already moved (name seems to be badly chosen, but comes from intelliJ).
   @NotNull private Set<PsiMember> myMembersToMove;
-  //private final PsiManager myManager;
 
   @Nullable
   protected Collection<PsiClass> sisterClasses = null;   // julien
@@ -220,11 +218,9 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
 
     private void doMoveImplementedClass(PsiSubstitutor substitutor, MemberInfo info) {
         PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
-        //System.out.println("pull-up-gen/moveMembersToBase : case 'implements'");
         PsiClass implementedIntf = (PsiClass) info.getMember();
 
         final PsiReferenceList sourceReferenceList = info.getSourceReferenceList();    // the class containing the member source code
-        //System.out.println(sourceReferenceList); // debug
 
 
         LOG.assertTrue(sourceReferenceList != null);
@@ -296,34 +292,21 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
 
 
 
-          //System.out.println("Selected methods:");
-          //for (PsiMethod m: sisterMethods) System.out.println(m);
-
           // 2)find which types have to be parameterized
 
           final DependentSubstitution initialParameters = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory); // used later to know the type parameters of the initial clases TODO: improve that
           DependentSubstitution       theMegaSubst      = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory);   // TODO: clone initialParameters above?
 
-          // final List <Integer> positions = GenerifyUtils.positionsToUnify(sisterMethods); // -1 represent the return type position
-          // final Map<Integer, PsiTypeParameter> sub = GenerifyUtils.unify(sisterMethods,computecurrentsubstitution(), method.getName(), JavaPsiFacade.getElementFactory(method.getProject()));
-
 
           final GenSubstitutionUtils.ParamSubstitution sub = GenSubstitutionUtils.antiunify(sisterMethods, theMegaSubst, method.getName(), elementFactory, boundNames); // TODO : fix that (empty substitution)
-          // System.out.println("Positions to generify:" + positions );
-
 
 
           // 3) build the abstract method
           RefactoringUtil.makeMethodAbstract(myTargetSuperClass, methodCopy);
-          //System.out.println("Copy of selected method created and abstracted: " + methodCopy) ;
 
 
           // 4) generify the abstract method
-
           GenBuildUtils.generifyAbstractMethod(methodCopy, sub);
-          //PsiTypeParameterList l = RefactoringUtil.createTypeParameterListWithUsedTypeParameters(methodCopy) ;
-          //System.out.println ("Abstract method generified (new type parameters:" + lt + ").") ;
-
 
 
           // 5) ??
@@ -340,16 +323,14 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
               myTargetSuperClass.getTypeParameterList().add(t);
           }
 
-          // 8) Add the new abstract method in the superclass (and get the new resulting method).
-          //System.out.println ("Going to add the new method in the superclass.");
-          //GenerifyUtils.showMethods(myTargetSuperClass) ;  //debug
-          final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(methodCopy);
 
+          // 8) Add the new abstract method in the superclass (and get the new resulting method).
+          final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(methodCopy);
 
 
           // 9) Add the parameters in sisterclasses extends statements
           GenBuildUtils.updateExtendsStatementsInSisterClasses(newParameters, myTargetSuperClass, elementFactory);
-          //System.out.println("Extends statements updated in sister classes.");
+
 
           // end Julien
 
@@ -433,61 +414,13 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
     }
 
 
-    private static PsiMethod convertMethodToLanguage(PsiMethod method, Language language) {
-    if (method.getLanguage().equals(language)) {
-      return method;
-    }
-    return JVMElementFactories.getFactory(language, method.getProject()).createMethodFromText(method.getText(), null);
-  }
-
-  private static PsiField convertFieldToLanguage(PsiField field, Language language) {
-    if (field.getLanguage().equals(language)) {
-      return field;
-    }
-    return JVMElementFactories.getFactory(language, field.getProject()).createField(field.getName(), field.getType());
-  }
-
-  private static PsiClass convertClassToLanguage(PsiClass clazz, Language language) {
-    //if (clazz.getLanguage().equals(language)) {
-    //  return clazz;
-    //}
-    //PsiClass newClass = JVMElementFactories.getFactory(language, clazz.getProject()).createClass(clazz.getName());
-    return clazz;
-  }
-
-
-
   private static void deleteOverrideAnnotationIfFound(PsiMethod oMethod) {
     final PsiAnnotation annotation = AnnotationUtil.findAnnotation(oMethod, Override.class.getName());
     if (annotation != null) {
       annotation.delete();
     }
   }
-/*
-  public void moveFieldInitializations() throws IncorrectOperationException {
-    LOG.assertTrue(myMembersAfterMove != null);
 
-    final LinkedHashSet<PsiField> movedFields = new LinkedHashSet<PsiField>();
-    for (PsiMember member : myMembersAfterMove) {
-      if (member instanceof PsiField) {
-        movedFields.add((PsiField)member);
-      }
-    }
-
-    if (movedFields.isEmpty()) return;
-    PsiMethod[] constructors = myTargetSuperClass.getConstructors();
-
-    if (constructors.length == 0) {
-      constructors = new PsiMethod[]{null};
-    }
-
-    HashMap<PsiMethod,HashSet<PsiMethod>> constructorsToSubConstructors = buildConstructorsToSubConstructorsMap(constructors);
-    for (PsiMethod constructor : constructors) {
-      HashSet<PsiMethod> subConstructors = constructorsToSubConstructors.get(constructor);
-      tryToMoveInitializers(constructor, subConstructors, movedFields);
-    }
-  }
-*/
   @Override
   public void moveFieldInitializations(LinkedHashSet<PsiField> movedFields) {
     PsiMethod[] constructors = myTargetSuperClass.getConstructors();
@@ -956,8 +889,6 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
   }
 
   private class ExplicitSuperDeleter extends JavaRecursiveElementWalkingVisitor {
-    //private final ArrayList<PsiExpression> mySupersToDelete = new ArrayList<PsiExpression>();
-    //private final ArrayList<PsiSuperExpression> mySupersToChangeToThis = new ArrayList<PsiSuperExpression>();
     private final PsiExpression myThisExpression = JavaPsiFacade.getElementFactory(myProject).createExpressionFromText("this", null);
 
     @Override

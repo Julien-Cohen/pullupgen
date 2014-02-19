@@ -30,6 +30,7 @@ import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoChange;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;
 import com.intellij.refactoring.memberPullUp.PullUpProcessor;
 import com.intellij.refactoring.ui.MemberSelectionPanel;
 import com.intellij.refactoring.ui.ShortClassCellRenderer;
@@ -105,7 +106,7 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
           return Boolean.TRUE;
         }
 
-        // JULIEN : to update the sister classes when a checbox is modified by the user
+        // JULIEN : to update the sister classes when a checkbox is modified by the user
         @Override
         public void memberInfoChanged(MemberInfoChange event){
             super.memberInfoChanged(event);
@@ -144,7 +145,7 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
 
   // Julien
   protected Collection<PsiClass> getSisterClasses() {
-        return ExtractSuperClassMultiUtil.getSisterClassesInDirectory(mySourceClass);
+        return GenAnalysisUtils.findSisterClassesInDirectory(mySourceClass);
   }
 
 

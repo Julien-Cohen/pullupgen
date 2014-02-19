@@ -101,7 +101,7 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
       PsiElement element = usage.getElement();
       if (element == null) continue;
 
-      //FIXMEPullUpGenHelper<MemberInfo> processor = getProcessor(element); from idea 13 (J)
+      //FIXME PullUpGenHelper<MemberInfo> processor = getProcessor(element); from idea 13 (J)
       PullUpHelper processor = getProcessor(element);
       processor.updateUsage(element);
     }

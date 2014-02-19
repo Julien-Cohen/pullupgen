@@ -24,6 +24,5 @@ import java.util.Collection;
  */
 public interface PullUpGenData extends PullUpData {
 
-
   Collection<PsiClass> getSisterClasses();
 }

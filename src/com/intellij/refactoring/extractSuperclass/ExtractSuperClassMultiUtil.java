@@ -67,7 +67,7 @@ public class ExtractSuperClassMultiUtil {
                                                 final DocCommentPolicy javaDocPolicy,
                                                 final boolean useGenericUnification)
     throws IncorrectOperationException {    
-      final Collection<PsiClass> sisterClasses = getSisterClassesInDirectory(subclass);  // rem : in extract super-class, we are only interested in classes at the same level. For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
+      final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findSisterClassesInDirectory(subclass);  // rem : in extract super-class, we are only interested in classes at the same level. For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
       final String packageName = ((PsiJavaFile)subclass.getContainingFile()).getPackageName();
 
       final Collection<PsiClass> selectedSisterClasses = filterSisterClasses(Arrays.asList(selectedMemberInfos), useGenericUnification, sisterClasses);
@@ -104,12 +104,7 @@ public class ExtractSuperClassMultiUtil {
   }
 
 
-  // Julien
-  public static Collection<PsiClass> getSisterClassesInDirectory(PsiClass subclass) {
-        return GenAnalysisUtils.findDirectSubClassesInDirectory(subclass.getSuperClass(), GenAnalysisUtils.getContainingDirectory(subclass));
-  }
-
-    // Modified (Julien)
+  // Modified (Julien)
   public static PsiClass extractSuperClass(final Project project,
                                            final PsiDirectory targetDirectory,
                                            final String superclassName,

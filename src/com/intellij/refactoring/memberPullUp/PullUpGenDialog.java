@@ -237,7 +237,7 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
     }
 
     private void setSisterClassDisplay() {
-        Collection<PsiClass> mySisterClasses = GenAnalysisUtils.findDirectSubClasses(getSuperClass()); // getSuperClass can be invoked only after myClassCombo has been initialized.
+        Collection<PsiClass> mySisterClasses = GenAnalysisUtils.findDirectSubClassesInDirectory(getSuperClass()); // getSuperClass can be invoked only after myClassCombo has been initialized.
         mySisterClassList.setListData(mySisterClasses.toArray());
     }
 

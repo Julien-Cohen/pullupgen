@@ -107,8 +107,8 @@ public class GenAnalysisUtils {
 
     }
 
-    // see also sameMethod
-    public static boolean hasMethodWithSameType(PsiMethod m, PsiClass c){
+    // see also sameMethods
+    public static boolean hasSameMethod(PsiMethod m, PsiClass c){
         for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
             if (sameType(m, m_tmp)) return true;
         }
@@ -116,7 +116,6 @@ public class GenAnalysisUtils {
     }
 
 
-    // TODO : use this instead of checkSubClassesHaveSameMethod
     public static boolean sameMethods(PsiMethod m1, PsiMethod m2){
         return  m1.getName().equals(m2.getName())
                 && sameType(m1,m2)  ;
@@ -140,7 +139,7 @@ public class GenAnalysisUtils {
     }
 
 
-// FIXME : method not used?
+
     public static boolean hasMembers(PsiClass c, Iterable<MemberInfo> infos){
         for (MemberInfo member: infos){
             PsiMember x = member.getMember();
@@ -155,7 +154,7 @@ public class GenAnalysisUtils {
             }
             else if (x instanceof PsiField){
                 PsiField xx = (PsiField) x;
-                boolean found = false ;           // TODO : follow the structure of 'hasCompatibleMembers' and use GenerifyUtils
+                boolean found = false ;           // TODO : follow the structure of 'hasCompatibleMembers' and use GenSubstitutionUtils
                 for (PsiField m : c.getFields()) {
                     if (sameFields(xx, m)) found=true; // break loop ?
                 }
@@ -178,32 +177,23 @@ public class GenAnalysisUtils {
 
 
 
-    @Deprecated    // use sameMethods instead
-    public static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
-        final Collection <PsiClass> classes = findDirectSubClasses(superClass);
 
-        for (PsiClass c: classes){
-            if (!hasMethodWithSameType(m, c))  {
-                if (c.isInterface() || c.hasModifierProperty(PsiModifier.ABSTRACT)) { //the method is not found but it may be in all subclasses, which would be ok.
-                    if (!checkSubClassesHaveSameMethod(m, c)) {
-                        return false;
-                    }
-                }
-                else { // the method is not found, and since that class is concrete, pull up would introduce an error.
-                    return false;
-                }
+    public static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
+
+        for (PsiClass c: findDirectSubClassesInDirectory(superClass)){
+            if (!hasSameMethod(m, c))  {
+                // OK only if interface/abstract-class and the method is in all subclasses
+                if ( ! ( (c.isInterface() || isAbstractClass(c)) && checkSubClassesHaveSameMethod(m, c))) return false;
             }
         }
         return true;
     }
 
-    public static GlobalSearchScope getDirScope(PsiClass aClass) {
-        return GlobalSearchScopes.directoryScope(getContainingDirectory(aClass), false);
+    public static boolean isAbstractClass(PsiClass c) {
+        return c.hasModifierProperty(PsiModifier.ABSTRACT);
     }
 
-    public static PsiDirectory getContainingDirectory(PsiClass aClass) {
-        return ((PsiJavaFile) aClass.getContainingFile()).getContainingDirectory();
-    }
+
 
 
 
@@ -233,7 +223,7 @@ public class GenAnalysisUtils {
             throws MemberNotImplemented
     {
         assert (i.isInterface());
-        final Collection <PsiClass> directSubClasses = findDirectSubClasses(superClass);
+        final Collection <PsiClass> directSubClasses = findDirectSubClassesInDirectory(superClass);
         for (PsiClass c: directSubClasses){
             if (! hasImplements(c,i)) throw new MemberNotImplemented(i, c);
         }
@@ -262,13 +252,8 @@ public class GenAnalysisUtils {
          */
         assert (m.getMember() instanceof PsiClass) ;
 
-        final PsiMember mem = m.getMember();
+        return   ((PsiClass) m.getMember()).isInterface() && !(m.getOverrides()) ;
 
-        if ( !(mem instanceof PsiClass )) return false;  // TODO : remove that line
-        if ( (((PsiClass) mem).isInterface())){
-            if (Boolean.FALSE.equals(m.getOverrides())) return true ;               // TODO : simplify this line
-        }
-        return false;
     }
 
 
@@ -300,30 +285,19 @@ public class GenAnalysisUtils {
 
 
 
+    /* ------ Lookup for sub-classes / sister-classes  ------ */
+    /* We make the assumption that the superclass and the sisterclass are all in the same directory */
 
 
-
-
-    /* ------ Lookup for subclasses  ------ */
-
-
-    // direct subclasses  (use findDirectSubClassesInPackage instead)
-    @Deprecated
-    public static Collection<PsiClass> findDirectSubClasses(@NotNull PsiClass superClass) {
-        return ClassInheritorsSearch.search(superClass, false).findAll();     // use default scope
+    public static Collection<PsiClass> findDirectSubClassesInDirectory(@NotNull PsiClass superClass) {
+        final PsiDirectory containingDirectory = ((PsiJavaFile) superClass.getContainingFile()).getContainingDirectory();
+        final GlobalSearchScope dirScope = GlobalSearchScopes.directoryScope(containingDirectory, false);
+        return ClassInheritorsSearch.search(superClass, dirScope, false).findAll();
     }
 
-    // FIXME : not used?
-    public static Collection<PsiClass> findDirectSubClassesInDirectory(@NotNull PsiClass superClass, PsiDirectory directory) {
-        return ClassInheritorsSearch.search(superClass, GlobalSearchScopes.directoryScope(directory, false), false).findAll();
+    public static Collection<PsiClass> findSisterClassesInDirectory(PsiClass subclass) {
+        return findDirectSubClassesInDirectory(subclass.getSuperClass());
     }
-
-
-
-
-
-
-
 
 
 
@@ -362,7 +336,7 @@ public class GenAnalysisUtils {
             throws AmbiguousOverloading, MemberNotImplemented {
 
         final Collection<PsiClass> res = new LinkedList<PsiClass>();
-        final Collection <PsiClass> directSubClasses = findDirectSubClasses(superClass); // TODO : limit the scope of search
+        final Collection <PsiClass> directSubClasses = findDirectSubClassesInDirectory(superClass);
 
         for (PsiClass c: directSubClasses){
             final int count = hasCompatibleMethod(m, c, checkpublic);
@@ -496,9 +470,7 @@ public class GenAnalysisUtils {
             */
 
         assert (m.getMember() instanceof PsiClass) ;
-        PsiMember mem = m.getMember();
 
-        if ( !(mem instanceof PsiClass )) return false;    // TODO : remove that line
         if (m.getOverrides() == null ) return true ;
         else return false;
     }

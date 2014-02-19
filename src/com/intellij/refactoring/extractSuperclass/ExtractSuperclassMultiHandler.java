@@ -60,9 +60,6 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
   private PsiClass mySubclass;
   private Project myProject;
 
-
-  // Julien TODO : make that better
-  // changed by ExtractSuperClassMultiGenAction
   public boolean myUseGenericUnification = false;
 
   public void invoke(@NotNull Project project, Editor editor, PsiFile file, DataContext dataContext) {
@@ -113,7 +110,6 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
     }, false);
 
     final ExtractSuperclassMultiDialog dialog =
-      //new ExtractSuperclassDialog(project, mySubclass, memberInfos, ExtractSuperclassMultiHandler.this, myUseGenericUnification);
       new ExtractSuperclassMultiDialog(project, mySubclass, memberInfos, ExtractSuperclassMultiHandler.this, myUseGenericUnification);
     dialog.show();
     if (!dialog.isOK() || !dialog.isExtractSuperclass()) return;
@@ -172,7 +168,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
       }
 
       // ask whether to search references to subclass and turn them into refs to superclass if possible
-      if (superclass != null) {       // rem Julien : copy of the new version
+      if (superclass != null) {
         final SmartPsiElementPointer<PsiClass> classPointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(subclass);
         final SmartPsiElementPointer<PsiClass> interfacePointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(superclass);
         final Runnable turnRefsToSuperRunnable = new Runnable() {
@@ -180,8 +176,8 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
             ExtractClassUtil.askAndTurnRefsToSuper(project, classPointer, interfacePointer);
           }
         };
-        SwingUtilities.invokeLater(turnRefsToSuperRunnable);
-          // ExtractClassUtil.askAndTurnRefsToSuper(project, subclass, superclass); //rem Julie : old version
+        SwingUtilities.invokeLater(turnRefsToSuperRunnable); // FIXME : this may be painful when chaining refactoring operations
+
       }
     }
     catch (IncorrectOperationException e) {
