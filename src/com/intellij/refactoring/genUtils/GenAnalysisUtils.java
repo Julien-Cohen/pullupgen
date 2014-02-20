@@ -139,51 +139,72 @@ public class GenAnalysisUtils {
     }
 
 
-
+    @Deprecated // Used only in ExtractSuperClassMultiUtils ; does not take branches into account, only subclasses. See checkSubclassesHaveSameMethod
     public static boolean hasMembers(PsiClass c, Iterable<MemberInfo> infos){
+        // FORALL
         for (MemberInfo member: infos){
-            PsiMember x = member.getMember();
+            if (!hasMember(c, member)) return false;
+        }
+        return true;
+    }
 
-            if (x instanceof PsiMethod){
-                PsiMethod xx = (PsiMethod) x ;
-                boolean found = false ;
-                for (PsiMethod m : c.getMethods()) {
-                    if (sameMethods(xx, m)) { found=true; } //else {System.out.println( xx + " and " + m + " found incompatible");}
-                }
-                if (!found) return false;
+    @Deprecated // used only in hasMembers
+    public static boolean hasMember(PsiClass c, MemberInfo member) {
+        boolean result = false;
+        PsiMember x = member.getMember();
+
+        // *) Methods
+        if (x instanceof PsiMethod){ // FIXME : use hasSameMethod instead?
+            PsiMethod xx = (PsiMethod) x ;
+            for (PsiMethod m : c.getMethods()) {
+                if (sameMethods(xx, m))  result=true;
             }
-            else if (x instanceof PsiField){
-                PsiField xx = (PsiField) x;
-                boolean found = false ;           // TODO : follow the structure of 'hasCompatibleMembers' and use GenSubstitutionUtils
-                for (PsiField m : c.getFields()) {
-                    if (sameFields(xx, m)) found=true; // break loop ?
-                }
-                if (!found) return false;
+
+        }
+
+        // *) Fields
+        else if (x instanceof PsiField){
+            PsiField xx = (PsiField) x; // TODO : follow the structure of 'hasCompatibleMembers' and use GenSubstitutionUtils
+            for (PsiField m : c.getFields()) {
+                if (sameFields(xx, m)) result=true; // break loop ?
             }
-            else if (x instanceof PsiClass && memberClassComesFromImplements(member)) {  // case "implements x"
-                PsiClass xx = (PsiClass) x ;
-                boolean found = false;
-                for (PsiClassType m : c.getImplementsListTypes()){
-                    if (m.resolve().equals(xx)) {found = true;} // not sure
-                }
-                if (!found) return false;
+        }
+
+        // *) Implements interface
+        else if (x instanceof PsiClass && memberClassComesFromImplements(member)) {
+            PsiClass xx = (PsiClass) x ;
+            for (PsiClassType m : c.getImplementsListTypes()){
+                if (m.resolve().equals(xx)) result = true; // not sure
             }
-            else throw new IncorrectOperationException("this type of member not handled yet : " + x);
+        }
+
+        // *) Other cases
+        else throw new IncorrectOperationException("this type of member not handled yet : " + x);
+        return result;
+    }
 
 
+    public static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
+
+        // Algorithmic skeleton : FORALL_BRANCHES : hasSameMethod
+        for (PsiClass c: findDirectSubClassesInDirectory(superClass)){
+            if (!hasSameMethod(m, c))  {
+                // OK only if interface/abstract-class and the method is in all subclasses
+                if ( ! ( (c.isInterface() || isAbstractClass(c)) && checkSubClassesHaveSameMethod(m, c))) return false;
+            }
         }
         return true;
     }
 
 
 
+    public static boolean checkSubClassesImplementInterface(PsiClassType t, PsiClass superClass){
 
-    public static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
-
+        // Algorithmic skeleton : FORALL_BRANCHES : hasSameImplements
         for (PsiClass c: findDirectSubClassesInDirectory(superClass)){
-            if (!hasSameMethod(m, c))  {
+            if (!hasSameImplements(c, t))  {
                 // OK only if interface/abstract-class and the method is in all subclasses
-                if ( ! ( (c.isInterface() || isAbstractClass(c)) && checkSubClassesHaveSameMethod(m, c))) return false;
+                if ( ! ( (c.isInterface() || isAbstractClass(c)) && checkSubClassesImplementInterface(t, c))) return false;
             }
         }
         return true;
@@ -210,31 +231,55 @@ public class GenAnalysisUtils {
      /* ------ Lookup for implements (interfaces) ------ */
 
 
-
-    public static class MemberNotImplemented extends Exception{
-        PsiClass c ; PsiMember m;
-        MemberNotImplemented(PsiMember _m, PsiClass _c){ m = _m ; c = _c ; }
-    }
-
-
-
-
-    public static Collection<PsiClass> findDirectSubClassesWithImplements(PsiClass i, PsiClass superClass)
+    public static Collection<PsiClass> findDirectSubClassesWithCompatibleImplements(PsiClass i, PsiClass superClass)
             throws MemberNotImplemented
     {
         assert (i.isInterface());
         final Collection <PsiClass> directSubClasses = findDirectSubClassesInDirectory(superClass);
         for (PsiClass c: directSubClasses){
-            if (! hasImplements(c,i)) throw new MemberNotImplemented(i, c);
+            if (! hasCompatibleImplements(c, i)) throw new MemberNotImplemented(i, c);
         }
         return directSubClasses ;
     }
 
+    public static boolean equalsArrays(PsiTypeParameter[] t1 , PsiTypeParameter[] t2){
+        System.out.println(t1.length); // debug
+        if (t1 == null) return t2 == null ;
+        if (t2 == null) return false ;
+        if (t1.length != t2.length) return false;
 
-    public static boolean hasImplements(PsiClass c, PsiClass i){
+        // FORALL
+        for (int i = 0 ; i< t1.length ; i++){
+               System.out.println (t1[i] + " ; " + t2[i]); // debug
+               if ( ! t1[i].equals(t2[i]) ) return false;
+        }
+        return true;
+    }
+
+    public static String stringOfArray(Object[] t){
+        String s = new String();
+        for (Object o : t){s+=o;}
+        return s;
+    }
+
+    // Checks whether class c implements t (exemple for t : I<String>).
+    // Works fine.
+    public static boolean hasSameImplements(PsiClass c, PsiClassType t){
+
+        // EXISTS
+        for (PsiClassType ty : c.getImplementsList().getReferencedTypes()){
+            System.out.println (ty + " / " + t + " => " + ty.equals(t));
+            if (ty.equals(t)) return true;
+        }
+        return false ;
+    }
+
+    // FIXME
+    public static boolean hasCompatibleImplements(PsiClass c, PsiClass i){
         assert (i.isInterface());
         for (PsiClass tmp : c.getInterfaces()) {
-            if (tmp.equals(i)) return true ;   // not sure that it works.
+            // Don't care of the type parameters (see hasSameImplements)
+            if (tmp.equals(i) ) return true ;   // not sure that it works.
         }
         return false ;
     }
@@ -281,6 +326,11 @@ public class GenAnalysisUtils {
 
 
 
+    public static class MemberNotImplemented extends Exception{
+        PsiClass c ; PsiMember m;
+        MemberNotImplemented(PsiMember _m, PsiClass _c){ m = _m ; c = _c ; }
+    }
+
 
 
 
@@ -318,7 +368,7 @@ public class GenAnalysisUtils {
         }
 
         else if (m instanceof PsiClass && memberClassComesFromImplements(mem)) {
-                return findDirectSubClassesWithImplements((PsiClass)m, superClass);}
+                return findDirectSubClassesWithCompatibleImplements((PsiClass) m, superClass);}
 
         else if (m instanceof PsiClass) {
                  throw new IncorrectOperationException("implement me : pull up class " + m);} // FIXME

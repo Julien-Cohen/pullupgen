@@ -175,6 +175,12 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
         myMembersAfterMove = ContainerUtil.newHashSet();
         assert (myMembersAfterMove != null);
 
+        assert (myMembersToMove != null && myMembersToMove.length > 0);
+
+        // (Julien) compute the set of sister methods (which have all the compatible members)
+        if (mySisterClasses == null )
+          mySisterClasses = (getProcessor(myMembersToMove[0])).getSisterClasses(myMembersToMove) ; // processor is a JavaPullUpGenHelper
+
         // build aux sets
         for (MemberInfo info : myMembersToMove) {
             myMovedMembers.add(info.getMember());
@@ -191,11 +197,8 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
               processor.setCorrectVisibility(info);
               processor.encodeContextInfo(info);
 
-            // (Julien) compute the set of sister methods (which have all the compatible members)
-            if (mySisterClasses == null )
-                mySisterClasses = processor.getSisterClasses(myMembersToMove) ; // processor is a JavaPullUpGenHelper
-        }
 
+        }
 
 
         assert (mySisterClasses != null);

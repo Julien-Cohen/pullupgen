@@ -7,6 +7,9 @@ package testExtractSuperClassMultGen.testgen1;
  * Time: 12:41
  * To change this template use File | Settings | File Templates.
  */
+
+/* test : select A, then m (abstract) */
+
 public class A {
 
     public void m (Integer i){

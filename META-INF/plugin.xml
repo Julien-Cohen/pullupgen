@@ -4,7 +4,7 @@
   <description><![CDATA[
      <p> Extends <i>Pull Members Up</i> refactoring to consider methods with different types in different classes to be pulled-up as an abstract method with generic types.</p> <p> Also provides an extension of the <i>Extract Superclass</i> refactoring to support several classes simulteanously.</p>
             ]]></description>
-  <version>0.3c</version>
+  <version>0.3d</version>
   <vendor>Julien Cohen (Ascola team)</vendor>
   <idea-version since-build="133.696"/>
 
@@ -17,7 +17,10 @@
   </project-components>
   <change-notes>
       <![CDATA[<p> <ul>
-            <li><b>0.3</b> IDEA 13 + improved GUI.</li>
+            <li><b>0.3d</b> Bug fix (pull up interface).</li>
+            <li><b>0.3c</b> Improved GUI for extract superclass multi.</li>
+            <li><b>0.3b</b> Adapted to IDEA 13. Not supporting IDEA 12.</li>
+            <li><b>0.3a</b> Improved GUI for pull-up-gen.</li>
             <li><b>0.2</b> Introduce new type parameters only if needed.</li>
             <li><b>0.1</b> First release, with <ul>
                 <li>pull-up method with generics and </li><li> extract superclass for several classes (automatically selects classes with methods that has been specified). </li></ul></li>

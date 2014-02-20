@@ -28,12 +28,12 @@ package com.intellij.refactoring.ui;
 import com.intellij.psi.*;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
 import com.intellij.refactoring.genUtils.GenAnalysisUtils;
-import com.intellij.refactoring.ui.MemberSelectionTable;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.ui.ColoredTableCellRenderer;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.RowIcon;
 import com.intellij.ui.SimpleTextAttributes;
+import com.intellij.util.IncorrectOperationException;
 
 import javax.swing.*;
 import javax.swing.table.TableColumnModel;
@@ -114,18 +114,36 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   }
 
 
-  void fillDirectAbstractPullupField(MemberInfo member, PsiClass s){
-        final boolean result = computeCanDirectAbstractPullupField(s, member.getMember());
+  void fillDirectAbstractPullupField(MemberInfo member, PsiClass sup){
+        final boolean result = computeCanDirectAbstractPullupMember(sup, member);
         setDirectAbstractPullupColumnValue(member, result);
   }
 
-  private static boolean computeCanDirectAbstractPullupField(PsiClass s, PsiMember m) {
 
+  // See also GenAnalysisUtils.hasMember
+  private static boolean computeCanDirectAbstractPullupMember(PsiClass sup, MemberInfo mem) {
+        PsiMember m = mem.getMember();
+
+
+        // *) Methods
         if (m instanceof PsiMethod){
-            return GenAnalysisUtils.checkSubClassesHaveSameMethod((PsiMethod) m, s) ;
+            return GenAnalysisUtils.checkSubClassesHaveSameMethod((PsiMethod) m, sup) ;
         }
-        else // FIXME : what about other sorts of memebers?
-            return false ;
+
+        // *) Fields
+        else if (m instanceof PsiField) { return false ; } // fIXME
+
+        // *) Implements interface
+        else  if (m instanceof PsiClass && GenAnalysisUtils.memberClassComesFromImplements(mem)) {
+
+            final PsiClassType[] referencedTypes = mem.getSourceReferenceList().getReferencedTypes();
+            assert(referencedTypes.length == 1) ;
+
+            return GenAnalysisUtils.checkSubClassesImplementInterface(referencedTypes[0], sup) ;
+        }
+
+        // *) Other cases.
+        else throw new IncorrectOperationException("this type of member not handled yet : " + m);
 
   }
 
@@ -144,8 +162,8 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
       for (MemberInfo m : myMemberInfos) fillCanGenMember(m, sup);
   }
 
-  public void fillAllDirectAbstractPullupFields(PsiClass s){
-      for (MemberInfo m : myMemberInfos) fillDirectAbstractPullupField(m, s);
+  public void fillAllDirectAbstractPullupFields(PsiClass sup){
+      for (MemberInfo m : myMemberInfos) fillDirectAbstractPullupField(m, sup);
   }
 
   public void fillAllCanMakeAbstractFields(){

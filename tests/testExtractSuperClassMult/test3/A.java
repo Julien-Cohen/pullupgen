@@ -7,9 +7,7 @@ package testExtractSuperClassMult.test3;
  * Time: 14:41
  * To change this template use File | Settings | File Templates.
  */
-public class A implements I {
-
-    int a ;
+public class A extends S {
 
     interface Toto { void toto() ;}
 
