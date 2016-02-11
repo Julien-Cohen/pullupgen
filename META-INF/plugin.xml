@@ -4,9 +4,9 @@
   <description><![CDATA[
      <p> Extends <i>Pull Members Up</i> refactoring to consider methods with different types in different classes to be pulled-up as an abstract method with generic types.</p> <p> Also provides an extension of the <i>Extract Superclass</i> refactoring to support several classes simulteanously.</p>
             ]]></description>
-  <version>0.3d</version>
+  <version>0.3e</version>
   <vendor>Julien Cohen (Ascola team)</vendor>
-  <idea-version since-build="133.696"/>
+  <idea-version since-build="141.3056.4"/>
 
   <application-components>
     <!-- Add your application components here -->
@@ -17,6 +17,7 @@
   </project-components>
   <change-notes>
       <![CDATA[<p> <ul>
+            <li><b>0.3e</b> Adapted to IDEA 14.</li>
             <li><b>0.3d</b> Bug fix (pull up interface).</li>
             <li><b>0.3c</b> Improved GUI for extract superclass multi.</li>
             <li><b>0.3b</b> Adapted to IDEA 13. Not supporting IDEA 12.</li>
@@ -41,7 +42,7 @@
   </change-notes>
   <actions>
     <!-- Add your actions here -->
-      <action id="PullUpAbstractGenerics.PullUpGenDialog" class="com.intellij.refactoring.memberPullUp.PullUpGenAction" text="Pull Up with Generics (abstract)"
+      <action id="PullUpAbstractGenerics.PullUpGenDialog" class="com.intellij.refactoring.actions.PullUpGenAction" text="Pull Up with Generics (abstract)"
               description="Pull up method as abstract (insert type parameter)">
           <add-to-group group-id="RefactoringMenu" anchor="last"/>
       </action>

@@ -48,7 +48,7 @@ public abstract class PullUpDialogBase<Storage extends AbstractMemberInfoStorage
   protected final List<Class> mySuperClasses;
   protected final Storage myMemberInfoStorage;
   protected List<MemberInfo> myMemberInfos;
-  protected JComboBox myClassCombo; // changed (J)
+  private JComboBox myClassCombo;
 
   public PullUpDialogBase(Project project, Class aClass, List<Class> superClasses, Storage memberInfoStorage, String title) {
     super(project, true);

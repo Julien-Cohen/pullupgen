@@ -25,11 +25,11 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 
 /**
- * Created by Max Medvedev on 10/4/13
+ * Up-to-date w.r.t. commit on 24 Oct 2013. *)
  */
 public interface PullUpGenHelper<T extends MemberInfoBase<? extends PsiMember>> extends PullUpHelper<T> {
 
 
-  Collection<PsiClass> getSisterClasses(MemberInfo[] infos) throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading; // (J)
+  Collection<PsiClass> getSisterClasses(MemberInfo[] infos) throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading;
 
 }

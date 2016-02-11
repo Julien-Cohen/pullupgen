@@ -15,10 +15,6 @@
  */
 package com.intellij.refactoring.memberPullUp;
 
-import com.intellij.refactoring.memberPullUp.JavaPullUpHelper;
-import com.intellij.refactoring.memberPullUp.PullUpData;
-import com.intellij.refactoring.memberPullUp.PullUpHelper;
-
 /**
 * Created by Max Medvedev on 10/4/13
 */

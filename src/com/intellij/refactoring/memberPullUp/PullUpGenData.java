@@ -20,7 +20,7 @@ import com.intellij.psi.PsiClass;
 import java.util.Collection;
 
 /**
- * Created by Max Medvedev on 10/3/13
+ * Up-to-date w.r.t. commit on 24 Oct 2013.
  */
 public interface PullUpGenData extends PullUpData {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2011 JetBrains s.r.o.
+ * Copyright 2000-2013 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,16 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
+/* Up-to-date w.r.t. commit on 10 Apr 2012. */
+/* Up-to-date w.r.t. commit on 14 Feb 2013. */
+/* Up-to-date w.r.t. commit on 30 Aug 2013. */
+/* Up-to-date w.r.t. commit on 14 Jul 2013. (not completely) : createNorthPanel and createCenterPanel not moved */
+/* Up-to-date w.r.t. commit on 24 Sep 2013. */
+/* Up-to-date w.r.t. commit on 1  Oct 2013. */
+/* Up-to-date w.r.t. commit on 23 Oct 2013. */
+/* Up-to-date w.r.t. commit on 7  Feb 2014. */
+/* Up-to-date w.r.t. commit on 18 Jul 2014. */
+/* Up-to-date w.r.t. commit on 5  Dec 2014. */
 package com.intellij.refactoring.memberPullUp;
 
 import com.intellij.openapi.help.HelpManager;
@@ -27,22 +37,23 @@ import com.intellij.openapi.util.Comparing;
 import com.intellij.psi.*;
 import com.intellij.psi.statistics.StatisticsInfo;
 import com.intellij.psi.statistics.StatisticsManager;
+import com.intellij.psi.util.MethodSignature;
+import com.intellij.psi.util.MethodSignatureUtil;
+import com.intellij.psi.util.PsiUtil;
+import com.intellij.psi.util.TypeConversionUtil;
 import com.intellij.refactoring.HelpID;
 import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.RefactoringBundle;
-import com.intellij.refactoring.classMembers.DelegatingMemberInfoModel;
+import com.intellij.refactoring.classMembers.MemberInfoModel;
 import com.intellij.refactoring.classMembers.MemberInfoChange;
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
-import com.intellij.refactoring.ui.*;
+import com.intellij.refactoring.ui.ClassCellRenderer;
+import com.intellij.refactoring.ui.DocCommentPanel;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringHierarchyUtil;
 import com.intellij.refactoring.util.classMembers.InterfaceContainmentVerifier;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.refactoring.util.classMembers.MemberInfoStorage;
 import com.intellij.refactoring.util.classMembers.UsesAndInterfacesDependencyMemberInfoModel;
-import com.intellij.ui.SeparatorFactory;
-import com.intellij.ui.components.JBList;
-import com.intellij.usageView.UsageViewUtil;
 import com.intellij.util.ui.UIUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -50,24 +61,25 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.util.Collection;
 import java.util.List;
 
+import com.intellij.ui.SeparatorFactory;
+import com.intellij.ui.components.JBList;
+import com.intellij.usageView.UsageViewUtil;
 
+import java.util.Collection;
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;
+import com.intellij.refactoring.ui.CustomMemberSelectionPanel;
+import com.intellij.refactoring.ui.CustomMemberSelectionTable;
+import com.intellij.refactoring.ui.ShortClassCellRenderer;
 /**
  * @author dsl
  * Date: 18.06.2002
  */
 public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberInfo, PsiMember, PsiClass> {
   private final Callback myCallback;
-  private CustomMemberSelectionPanel myMemberSelectionPanel;    // rem : initialized by createCenterPanel()  // TODO : check that for the type (J) // WARNING : hides the inherited myMemberSelectionPanel
-  //private MyMemberInfoModel myMemberInfoModel;
-  //private final PsiClass myClass;
-  //private final List<PsiClass> mySuperClasses;
-  //private final MemberInfoStorage myMemberInfoStorage;
-  //private List<MemberInfo> myMemberInfos;
   private DocCommentPanel myJavaDocPanel;
-  //private JComboBox myClassCombo;
+  CustomMemberSelectionPanel myMemberSelectionPanel;    // rem : initialized by createCenterPanel()  // TODO : check that for the type (J) // WARNING : hides the inherited myMemberSelectionPanel
   JComboBox mySecondClassCombo; // FIXME : temporary, just to hide the private combo
 
 
@@ -82,59 +94,37 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
   //Julien : to display the list of sister classes.
   JList mySisterClassList;
 
-//  static CustomMemberInfo convert (MemberInfo i){}
-
   public interface Callback {
     boolean checkConflicts(PullUpGenDialog dialog);
   }
 
   public PullUpGenDialog(Project project, PsiClass aClass, List<PsiClass> superClasses, MemberInfoStorage memberInfoStorage, Callback callback) {
-    //super(project, true);
     super(project, aClass, superClasses, memberInfoStorage, JavaPullUpGenHandler.REFACTORING_NAME); // TODO : check that (J)
-    //myClass = aClass;
-    //mySuperClasses = superClasses;
-    //myMemberInfoStorage = memberInfoStorage;
-    //myMemberInfos = myMemberInfoStorage.getClassMemberInfos(aClass);
     myCallback = callback;
-
-
-    // setTitle(JavaPullUpGenHandler.REFACTORING_NAME);
 
     init();
 
     // Julien
     fillAllAnalyses();
-
-
   }
 
+
+  // removed in community by commit on 14 Jul 2013 but I keep it to branch on the second class combo.
   @Override
   @NotNull
   public PsiClass getSuperClass() {
     if (mySecondClassCombo != null) {
-      return (PsiClass) mySecondClassCombo.getSelectedItem();
+      return (PsiClass) mySecondClassCombo.getSelectedItem(); // J
     }
     else {
       return null; // FIXME
     }
   }
 
+
   public int getJavaDocPolicy() {
     return myJavaDocPanel.getPolicy();
   }
-
-    /*
-  public MemberInfo[] getSelectedMemberInfos() {
-    ArrayList<MemberInfo> list = new ArrayList<MemberInfo>(myMemberInfos.size());
-    for (MemberInfo info : myMemberInfos) {
-      if (info.isChecked() && myMemberInfoModel.isMemberEnabled(info)) {
-        list.add(info);
-      }
-    }
-    return list.toArray(new MemberInfo[list.size()]);
-  }
-*/
-
 
   protected String getDimensionServiceKey() {
     return "#com.intellij.refactoring.memberPullUp.PullUpGenDialog";
@@ -147,6 +137,7 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
   // The north panel contains the selector for the target super class (but not the member selection panel).
   // I (Julien) add the sister classes panel.
 
+  // Removed in community commit 14 Jul 2013 (moved to PullUpDialogBase).
   @Override
   protected JComponent createNorthPanel() {
     JPanel panel = new JPanel();
@@ -267,22 +258,26 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
     HelpManager.getInstance().invokeHelp(HelpID.MEMBERS_PULL_UP);
   }
 
-
   protected void doAction() {
     if (!myCallback.checkConflicts(this)) return;
     JavaRefactoringSettings.getInstance().PULL_UP_MEMBERS_JAVADOC = myJavaDocPanel.getPolicy();
-    StatisticsManager
-            .getInstance().incUseCount(new StatisticsInfo(PULL_UP_STATISTICS_KEY + myClass.getQualifiedName(), getSuperClass().getQualifiedName()));
+    final PsiClass superClass = getSuperClass();
+    String name = superClass.getQualifiedName();
+    if (name != null) {
+      StatisticsManager
+        .getInstance().incUseCount(new StatisticsInfo(PULL_UP_STATISTICS_KEY + myClass.getQualifiedName(), name));
+    }
 
-      List<MemberInfo> infos = getSelectedMemberInfos();
-      invokeRefactoring(new PullUpGenProcessor(myClass, getSuperClass(), infos.toArray(new MemberInfo[infos.size()]),
+    List<MemberInfo> infos = getSelectedMemberInfos();
+    invokeRefactoring(new PullUpGenProcessor(myClass, superClass, infos.toArray(new MemberInfo[infos.size()]),
                                                new DocCommentPolicy(getJavaDocPolicy())));
     close(OK_EXIT_CODE);
   }
 
 
 
-// FIXME : doublon
+  // FIXME : doublon
+  // moved in PullUpDialogBase in community commit on 14 Jul 2013
   // The center panel contains the member selection panel and the javadoc panel
   @Override
   protected JComponent createCenterPanel() {
@@ -299,7 +294,7 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
     myMemberSelectionPanel.getTable().addMemberInfoChangeListener(myMemberInfoModel);
     panel.add(myMemberSelectionPanel, BorderLayout.CENTER);
 
-    addCustomElementsToCentralPanel(panel); // empty
+    addCustomElementsToCentralPanel(panel);
     return panel;
   }
 
@@ -315,34 +310,33 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
 
     myJavaDocPanel = new DocCommentPanel(RefactoringBundle.message("javadoc.for.abstracts"));
     myJavaDocPanel.setPolicy(JavaRefactoringSettings.getInstance().PULL_UP_MEMBERS_JAVADOC);
-    boolean hasJavadoc = false; // from Anna's commit Apr, 10 2012
+    boolean hasJavadoc = false;
     for (MemberInfo info : myMemberInfos) {
       final PsiMember member = info.getMember();
-      if (myMemberInfoModel.isAbstractEnabled(info) && member instanceof PsiDocCommentOwner && ((PsiDocCommentOwner)member).getDocComment() != null) {
-        hasJavadoc = true;
-        break;
+      if (myMemberInfoModel.isAbstractEnabled(info)) {
+        info.setToAbstract(myMemberInfoModel.isAbstractWhenDisabled(info));
+        if (!hasJavadoc &&
+            member instanceof PsiDocCommentOwner &&
+            ((PsiDocCommentOwner)member).getDocComment() != null) {
+          hasJavadoc = true;
+        }
       }
     }
     UIUtil.setEnabled(myJavaDocPanel, hasJavadoc, true);
     panel.add(myJavaDocPanel, BorderLayout.EAST);
-
   }
+
   @Override
-  protected CustomMemberSelectionTable createMemberSelectionTable(List<MemberInfo> infos) {
+  protected CustomMemberSelectionTable createMemberSelectionTable(List<MemberInfo> infos) { //J
    return new CustomMemberSelectionTable(infos, RefactoringBundle.message("make.abstract"));
   }
 
-
   @Override
-  protected DelegatingMemberInfoModel<PsiMember, MemberInfo> createMemberInfoModel() {
+  protected MemberInfoModel<PsiMember, MemberInfo> createMemberInfoModel() {
     return new MyMemberInfoModel();
   }
 
-
-  private class MyMemberInfoModel extends UsesAndInterfacesDependencyMemberInfoModel <PsiMember,MemberInfo>{
-    /* all @Override annotations in this internal class added by Julien */
-
-
+  private class MyMemberInfoModel extends UsesAndInterfacesDependencyMemberInfoModel<PsiMember, MemberInfo> {
     public MyMemberInfoModel() {
       super(myClass, getSuperClass(), false, myInterfaceContainmentVerifier);
     }
@@ -354,36 +348,41 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
     @Override
     public boolean isMemberEnabled(MemberInfo member) {
     /* rem Julien : indicates if a member can be pulled up to the selected superclass (not clear) */
-      PsiClass currentSuperClass = getSuperClass();
+      final PsiClass currentSuperClass = getSuperClass();
       if(currentSuperClass == null) return true;
       if (myMemberInfoStorage.getDuplicatedMemberInfos(currentSuperClass).contains(member)) return false;
       if (myMemberInfoStorage.getExtending(currentSuperClass).contains(member.getMember())) return false;  /* rem Julien cannot do a pull up if the method is already in the selected superclass */
-      if (!currentSuperClass.isInterface()) return true; /* rem Julien : if the selected superclass is a real class (not an interface, the above tests are sufficients, else (interface), continue with some tests */
+      final boolean isInterface = currentSuperClass.isInterface();
+      if (!isInterface) return true; /* rem Julien : if the selected superclass is a real class (not an interface, the above tests are sufficients, else (interface), continue with some tests */
 
       PsiElement element = member.getMember();
-      if (element instanceof PsiClass && ((PsiClass) element).isInterface()) {
-          /* rem Julien : can pull up an interface in an interface */
-          return true;
-      }
+      if (element instanceof PsiClass && ((PsiClass) element).isInterface()) return true;
+          // rem Julien : can pull up an interface in an interface
+
       if (element instanceof PsiField) {
         /* rem Julien : interfaces can contain static fields (must be final) */
         return ((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);
       }
       if (element instanceof PsiMethod) {
-        /* rem JuliSeconden : don't pull up static methods in interfaces */
-        return !((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);
+        /* rem Julien : don't pull up static methods in interfaces */
+        final PsiSubstitutor superSubstitutor = TypeConversionUtil.getSuperClassSubstitutor(currentSuperClass, myClass, PsiSubstitutor.EMPTY);
+        final MethodSignature signature = ((PsiMethod) element).getSignature(superSubstitutor);
+        final PsiMethod superClassMethod = MethodSignatureUtil.findMethodBySignature(currentSuperClass, signature, false);
+        if (superClassMethod != null && !PsiUtil.isLanguageLevel8OrHigher(currentSuperClass)) return false;
+        return !((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC) || PsiUtil.isLanguageLevel8OrHigher(currentSuperClass);
       }
       return true; /* Rem Julien : can pull up instance method in interface */
     }
-
 
     @Override
     public boolean isAbstractEnabled(MemberInfo member) {
       PsiClass currentSuperClass = getSuperClass();
       if (currentSuperClass == null || !currentSuperClass.isInterface()) return true;
+      if (PsiUtil.isLanguageLevel8OrHigher(currentSuperClass)) {
+        return true;
+      }
       return false;
     }
-
 
     @Override
     public boolean isAbstractWhenDisabled(MemberInfo member) {
@@ -391,8 +390,9 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
       PsiClass currentSuperClass = getSuperClass();
       if(currentSuperClass == null) return false;
       if (currentSuperClass.isInterface()) {
-        if (member.getMember() instanceof PsiMethod) {
-          return true;
+        final PsiMember psiMember = member.getMember();
+        if (psiMember instanceof PsiMethod) {
+          return !psiMember.hasModifierProperty(PsiModifier.STATIC);
         }
       }
       return false;
@@ -414,7 +414,6 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
         return super.checkForProblems(member);
       }
     }
-
 
     @Override
     public Boolean isFixedAbstract(MemberInfo member) {

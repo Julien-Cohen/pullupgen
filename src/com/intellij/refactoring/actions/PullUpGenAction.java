@@ -18,10 +18,11 @@
  * Extended by Julien Cohen (Ascola team, Univ. Nantes), Feb/March 2012.
  * Copyright 2012 Université de Nantes for those contributions.            
  */
-package com.intellij.refactoring.memberPullUp;
+package com.intellij.refactoring.actions;
+
 import com.intellij.lang.refactoring.RefactoringSupportProvider;
 import com.intellij.refactoring.RefactoringActionHandler;
-import com.intellij.refactoring.actions.BasePlatformRefactoringAction;
+import com.intellij.refactoring.memberPullUp.JavaPullUpGenHandler;
 import org.jetbrains.annotations.NotNull;
 
 public class PullUpGenAction extends BasePlatformRefactoringAction {
@@ -29,13 +30,13 @@ public class PullUpGenAction extends BasePlatformRefactoringAction {
     setInjectedContext(true);
   }
 
+  @Override
   public boolean isAvailableInEditorOnly() {
     return false;
   }
 
   @Override
   protected RefactoringActionHandler getRefactoringHandler(@NotNull RefactoringSupportProvider provider) {
-
-    return new JavaPullUpGenHandler() ;
+    return new JavaPullUpGenHandler() ; // FIXME : not up-to-date with JetBrains version.
   }
 }

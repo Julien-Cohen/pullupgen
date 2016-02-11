@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2013 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import com.intellij.refactoring.BaseRefactoringProcessor;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoBase;
 import com.intellij.refactoring.listeners.JavaRefactoringListenerManager;
+import com.intellij.refactoring.listeners.RefactoringEventData;
 import com.intellij.refactoring.listeners.impl.JavaRefactoringListenerManagerImpl;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringUIUtil;
@@ -49,10 +50,12 @@ import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.usageView.UsageViewDescriptor;
+import com.intellij.util.Function;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.Query;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -65,7 +68,7 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
   private final DocCommentPolicy myJavaDocPolicy;
   private Set<PsiMember> myMembersAfterMove = null;
   private Set<PsiMember> myMovedMembers = null;
-  protected Map<Language, PullUpHelper<MemberInfo>> myProcessors = ContainerUtil.newHashMap(); //made protected (J)
+  private final Map<Language, PullUpHelper<MemberInfo>> myProcessors = ContainerUtil.newHashMap();
 
   public PullUpProcessor(PsiClass sourceClass, PsiClass targetSuperClass, MemberInfo[] membersToMove, DocCommentPolicy javaDocPolicy) {
     super(sourceClass.getProject());
@@ -75,11 +78,13 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
     myJavaDocPolicy = javaDocPolicy;
   }
 
+  @Override
   @NotNull
   protected UsageViewDescriptor createUsageViewDescriptor(UsageInfo[] usages) {
     return new PullUpUsageViewDescriptor();
   }
 
+  @Override
   @NotNull
   protected UsageInfo[] findUsages() {
     final List<UsageInfo> result = new ArrayList<UsageInfo>();
@@ -94,6 +99,35 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
     return result.isEmpty() ? UsageInfo.EMPTY_ARRAY : result.toArray(new UsageInfo[result.size()]);
   }
 
+  @Nullable
+  @Override
+  protected String getRefactoringId() {
+    return "refactoring.pull.up";
+  }
+
+  @Nullable
+  @Override
+  protected RefactoringEventData getBeforeData() {
+    RefactoringEventData data = new RefactoringEventData();
+    data.addElement(mySourceClass);
+    data.addMembers(myMembersToMove, new Function<MemberInfo, PsiElement>() {
+      @Override
+      public PsiElement fun(MemberInfo info) {
+        return info.getMember();
+      }
+    });
+    return data;
+  }
+
+  @Nullable
+  @Override
+  protected RefactoringEventData getAfterData(UsageInfo[] usages) {
+    final RefactoringEventData data = new RefactoringEventData();
+    data.addElement(myTargetSuperClass);
+    return data;
+  }
+
+  @Override
   protected void performRefactoring(UsageInfo[] usages) {
     moveMembersToBase();
     moveFieldInitializations();
@@ -101,8 +135,7 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
       PsiElement element = usage.getElement();
       if (element == null) continue;
 
-      //FIXME PullUpGenHelper<MemberInfo> processor = getProcessor(element); from idea 13 (J)
-      PullUpHelper processor = getProcessor(element);
+      PullUpHelper<MemberInfo> processor = getProcessor(element);
       processor.updateUsage(element);
     }
     ApplicationManager.getApplication().invokeLater(new Runnable() {
@@ -114,33 +147,39 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
   }
 
   private void processMethodsDuplicates() {
-    if (!myTargetSuperClass.isValid()) return;
     ProgressManager.getInstance().runProcessWithProgressSynchronously(new Runnable() {
       @Override
       public void run() {
-        final Query<PsiClass> search = ClassInheritorsSearch.search(myTargetSuperClass);
-        final Set<VirtualFile> hierarchyFiles = new HashSet<VirtualFile>();
-        for (PsiClass aClass : search) {
-          final PsiFile containingFile = aClass.getContainingFile();
-          if (containingFile != null) {
-            final VirtualFile virtualFile = containingFile.getVirtualFile();
-            if (virtualFile != null) {
-              hierarchyFiles.add(virtualFile);
+        ApplicationManager.getApplication().runReadAction(new Runnable() {
+          @Override
+          public void run() {
+            if (!myTargetSuperClass.isValid()) return;
+            final Query<PsiClass> search = ClassInheritorsSearch.search(myTargetSuperClass);
+            final Set<VirtualFile> hierarchyFiles = new HashSet<VirtualFile>();
+            for (PsiClass aClass : search) {
+              final PsiFile containingFile = aClass.getContainingFile();
+              if (containingFile != null) {
+                final VirtualFile virtualFile = containingFile.getVirtualFile();
+                if (virtualFile != null) {
+                  hierarchyFiles.add(virtualFile);
+                }
+              }
             }
-          }
-        }
-        final Set<PsiMember> methodsToSearchDuplicates = new HashSet<PsiMember>();
-        for (PsiMember psiMember : myMembersAfterMove) {
-          if (psiMember instanceof PsiMethod && psiMember.isValid() && ((PsiMethod)psiMember).getBody() != null) {
-            methodsToSearchDuplicates.add(psiMember);
-          }
-        }
+            final Set<PsiMember> methodsToSearchDuplicates = new HashSet<PsiMember>();
+            for (PsiMember psiMember : myMembersAfterMove) {
+              if (psiMember instanceof PsiMethod && psiMember.isValid() && ((PsiMethod) psiMember).getBody() != null) {
+                methodsToSearchDuplicates.add(psiMember);
+              }
+            }
 
-        MethodDuplicatesHandler.invokeOnScope(myProject, methodsToSearchDuplicates, new AnalysisScope(myProject, hierarchyFiles), true);
+            MethodDuplicatesHandler.invokeOnScope(myProject, methodsToSearchDuplicates, new AnalysisScope(myProject, hierarchyFiles), true);
+          }
+        });
       }
     }, MethodDuplicatesHandler.REFACTORING_NAME, true, myProject);
   }
 
+  @Override
   protected String getCommandName() {
     return RefactoringBundle.message("pullUp.command", DescriptiveNameUtil.getDescriptiveName(mySourceClass));
   }
@@ -180,8 +219,7 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
     return getProcessor(language);
   }
 
-  // changed from private to protecte (J)
-  protected PullUpHelper<MemberInfo> getProcessor(Language language) {
+  private PullUpHelper<MemberInfo> getProcessor(Language language) {
     PullUpHelper<MemberInfo> helper = myProcessors.get(language);
     if (helper == null) {
       helper = PullUpHelper.INSTANCE.forLanguage(language).createPullUpHelper(this);
@@ -198,11 +236,8 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
     return getProcessor(info.getMember());
   }
 
-  // Julien: a PsiSubstitutor represents a mapping between type parameters and their values. (from PsiSubstitutor)
   private PsiSubstitutor upDownSuperClassSubstitutor() {
     PsiSubstitutor substitutor = PsiSubstitutor.EMPTY;
-      // Julien: collect the type parameters of the source class, and map them to null in the result being built.
-      // null plays the role of default value (can be overwritten later).
     for (PsiTypeParameter parameter : PsiUtil.typeParametersIterable(mySourceClass)) {
       substitutor = substitutor.put(parameter, null);
     }
@@ -277,19 +312,23 @@ public class PullUpProcessor extends BaseRefactoringProcessor implements PullUpD
   }
 
   private class PullUpUsageViewDescriptor implements UsageViewDescriptor {
+    @Override
     public String getProcessedElementsHeader() {
       return "Pull up members from";
     }
 
+    @Override
     @NotNull
     public PsiElement[] getElements() {
       return new PsiElement[]{mySourceClass};
     }
 
+    @Override
     public String getCodeReferencesText(int usagesCount, int filesCount) {
       return "Class to pull up members to \"" + RefactoringUIUtil.getDescription(myTargetSuperClass, true) + "\"";
     }
 
+    @Override
     public String getCommentReferencesText(int usagesCount, int filesCount) {
       return null;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2013 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,15 @@
  * Extended by Julien Cohen (Ascola team, Univ. Nantes), Feb/March 2012.
  * Copyright 2012 Université de Nantes for those contributions.            
  */
+
+/* Up-to-date w.r.t. commit on 18 Sep 2012. */
+/* Up-to-date w.r.t. commit on 11 Oct 2012. */
+/* Up-to-date w.r.t. commit on 7  Nov 2012. */
+/* Up-to-date w.r.t. commit on 17 Dec 2012. */
+/* Up-to-date w.r.t. commit on 8  May 2013. */
+/* Up-to-date w.r.t. commit on 3  Jun 2013. */
+/* Up-to-date w.r.t. commit on 23 Oct 2013. */
+/* Up-to-date w.r.t. commit on 16 Jul 2014. */
 
 package com.intellij.refactoring.memberPullUp;
 
@@ -40,10 +49,6 @@ import com.intellij.psi.util.InheritanceUtil;
 import com.intellij.psi.util.MethodSignatureUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.util.PsiUtil;
-import com.intellij.refactoring.genUtils.DependentSubstitution;
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
-import com.intellij.refactoring.genUtils.GenBuildUtils;
-import com.intellij.refactoring.genUtils.GenSubstitutionUtils;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringChangeUtil;
 import com.intellij.refactoring.util.RefactoringHierarchyUtil;
@@ -53,79 +58,69 @@ import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.VisibilityUtil;
 import com.intellij.util.containers.HashMap;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
+import com.intellij.refactoring.genUtils.DependentSubstitution;
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;
+import com.intellij.refactoring.genUtils.GenBuildUtils;
+import com.intellij.refactoring.genUtils.GenSubstitutionUtils;
 
+
+/**
+ * Created by Max Medvedev on 10/3/13
+ */
+public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
   private static final Logger LOG = Logger.getInstance(JavaPullUpGenHelper.class);
-  private static final Key<Boolean> PRESERVE_QUALIFIER = Key.<Boolean>create("PRESERVE_QUALIFIER");
+
+  private static final Key<Boolean> PRESERVE_QUALIFIER = Key.create("PRESERVE_QUALIFIER");
+
+
   private final PsiClass mySourceClass;
   private final PsiClass myTargetSuperClass;
   private final boolean myIsTargetInterface;
   private final DocCommentPolicy myJavaDocPolicy;
-  private Set<PsiMember> myMembersAfterMove ; // Set of members that have been already moved (name seems to be badly chosen, but comes from intelliJ).
-  @NotNull private Set<PsiMember> myMembersToMove;
-
-  @Nullable
-  protected Collection<PsiClass> sisterClasses = null;   // julien
-
-
-
-
+  private Set<PsiMember> myMembersAfterMove = null; // Set of members that have been already moved (name seems to be badly chosen, but comes from intelliJ).
+  private Set<PsiMember> myMembersToMove;
   private Project myProject;
 
-
-
   private final QualifiedThisSuperAdjuster myThisSuperAdjuster;
-
   private final ExplicitSuperDeleter myExplicitSuperDeleter;
 
-
+  protected Collection<PsiClass> sisterClasses = null;   // julien
 
   public JavaPullUpGenHelper(PullUpGenData data) {
-    this ((PullUpData) data);
+    myProject = data.getProject();
+    myMembersToMove = data.getMembersToMove();
+    myMembersAfterMove = data.getMovedMembers();
+    myTargetSuperClass = data.getTargetClass();
+    mySourceClass = data.getSourceClass();
+    myJavaDocPolicy = data.getDocCommentPolicy();
+    myIsTargetInterface = myTargetSuperClass.isInterface();
+
+    myThisSuperAdjuster = new QualifiedThisSuperAdjuster();
+    myExplicitSuperDeleter = new ExplicitSuperDeleter();
     sisterClasses = data.getSisterClasses();
   }
-
-  public JavaPullUpGenHelper(PullUpData data) {
-        myProject = data.getProject();
-        myMembersToMove = data.getMembersToMove();
-        myMembersAfterMove = data.getMovedMembers();
-        myTargetSuperClass = data.getTargetClass();
-        mySourceClass = data.getSourceClass();
-        myJavaDocPolicy = data.getDocCommentPolicy();
-        myIsTargetInterface = myTargetSuperClass.isInterface();
-
-
-        myThisSuperAdjuster = new QualifiedThisSuperAdjuster();
-        myExplicitSuperDeleter = new ExplicitSuperDeleter();
-  }
-
 
   @Override
   public void encodeContextInfo(MemberInfo info) {
     ChangeContextUtil.encodeContextInfo(info.getMember(), true);
   }
 
-
-
   @Override
   public void move(MemberInfo info, PsiSubstitutor substitutor) {
-        if (info.getMember() instanceof PsiMethod) {
-            doMoveMethod(substitutor, info);
-        }
-        else if (info.getMember() instanceof PsiField) {
-            doMoveField(substitutor, info);
-        }
-
-
-        else if (info.getMember() instanceof PsiClass) {
-            doMoveClass(substitutor, info);
-        }
+    if (info.getMember() instanceof PsiMethod) {
+      doMoveMethod(substitutor, info);
     }
+    else if (info.getMember() instanceof PsiField) {
+      doMoveField(substitutor, info);
+    }
+    else if (info.getMember() instanceof PsiClass) {
+      doMoveClass(substitutor, info);
+    }
+  }
 
   @Override
   public void postProcessMember(PsiMember member) {
@@ -153,250 +148,246 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
 
   @Override
   public void setCorrectVisibility(MemberInfo info) {
-        PsiModifierListOwner modifierListOwner = info.getMember();
+    PsiModifierListOwner modifierListOwner = info.getMember();
 
-      /* Julien : I change this because when a method is package, it has to be intensionally changed into public (interface members are public)
-      if (myIsTargetInterface) {
-        PsiUtil.setModifierProperty(modifierListOwner, PsiModifier.PUBLIC, true); // TODO: if you do this, do it for all sister methods (or package?)
-      } */
-        if (myIsTargetInterface && !modifierListOwner.hasModifierProperty("public")){ // TODO : change "public" into *.PUBLIC
-            throw new IncorrectOperationException("Please change the visibility of the method to PUBLIC before moving it into an interface.");   // Julien
-        }
-        else  if (modifierListOwner.hasModifierProperty(PsiModifier.PRIVATE)) {
-            if (info.isToAbstract() || willBeUsedInSubclass(modifierListOwner, myTargetSuperClass, mySourceClass)) {
-                PsiUtil.setModifierProperty(modifierListOwner, PsiModifier.PROTECTED, true);
+    // Julien : I change this because when a method is package, it has to be intensionally changed into public (interface members are public)
+    if (myIsTargetInterface && !modifierListOwner.hasModifierProperty("public")){ // TODO : change "public" into *.PUBLIC
+      throw new IncorrectOperationException("Please change the visibility of the method to PUBLIC before moving it into an interface.");   // Julien
+    }
+    else if (modifierListOwner.hasModifierProperty(PsiModifier.PRIVATE)) {
+      if (info.isToAbstract() || willBeUsedInSubclass(modifierListOwner, myTargetSuperClass, mySourceClass)) {
+        PsiUtil.setModifierProperty(modifierListOwner, PsiModifier.PROTECTED, true);
+      }
+      if (modifierListOwner instanceof PsiClass) {
+        modifierListOwner.accept(new JavaRecursiveElementWalkingVisitor() {
+          @Override
+          public void visitMethod(PsiMethod method) {
+            check(method);
+          }
+
+          @Override
+          public void visitField(PsiField field) {
+            check(field);
+          }
+
+          @Override
+          public void visitClass(PsiClass aClass) {
+            check(aClass);
+            super.visitClass(aClass);
+          }
+
+          private void check(PsiMember member) {
+            if (member.hasModifierProperty(PsiModifier.PRIVATE)) {
+              if (willBeUsedInSubclass(member, myTargetSuperClass, mySourceClass)) {
+                PsiUtil.setModifierProperty(member, PsiModifier.PROTECTED, true);
+              }
             }
-            if (modifierListOwner instanceof PsiClass) {
-                modifierListOwner.accept(new JavaRecursiveElementWalkingVisitor() {
-                    @Override
-                    public void visitMethod(PsiMethod method) {
-                        check(method);
-                    }
-
-                    @Override
-                    public void visitField(PsiField field) {
-                        check(field);
-                    }
-
-                    @Override
-                    public void visitClass(PsiClass aClass) {
-                        check(aClass);
-                        super.visitClass(aClass);
-                    }
-
-                    private void check(PsiMember member) {
-                        if (member.hasModifierProperty(PsiModifier.PRIVATE)) {
-                            if (willBeUsedInSubclass(member, myTargetSuperClass, mySourceClass)) {
-                                PsiUtil.setModifierProperty(member, PsiModifier.PROTECTED, true);
-                            }
-                        }
-                    }
-                });
-            }
-        }
+          }
+        });
+      }
+    }
   }
 
-
-    private void doMoveClass(PsiSubstitutor substitutor, MemberInfo info) {
-        // (rem Julien) case where the member to pull-up is a class/interface, internal or declared as superclass/interface
-        if (GenAnalysisUtils.memberClassComesFromImplements(info)){
-              doMoveImplementedClass(substitutor, info);
-          }
-
-          else { // (rem Julien) the member refers to a class, but not from 'implements' : either from 'extends', either from inner-class. I guess 'extends' are out of scope of the pull-up operation.
-            assert(GenAnalysisUtils.memberClassIsInnerClass(info));
-            PsiClass aClass = (PsiClass)info.getMember();
-            throw new IncorrectOperationException("inner classes not handled yet : " + aClass);  /*
-            RefactoringUtil.replaceMovedMemberTypeParameters(aClass, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-            fixReferencesToStatic(aClass, movedMembers);
-            final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(aClass);
-            myMembersAfterMove.add(movedElement);
-            aClass.delete();  */
-            // TODO : handle inner classes
-          }
+  private void doMoveClass(PsiSubstitutor substitutor, MemberInfo info) {
+    // (rem Julien) case where the member to pull-up is a class/interface, internal or declared as superclass/interface
+    if (GenAnalysisUtils.memberClassComesFromImplements(info)){
+      throw new IncorrectOperationException("pull-up classes not supported.");
     }
+    else {
+      // (rem Julien) the member refers to a class, but not from 'implements' : either from 'extends', either from inner-class. I guess 'extends' are out of scope of the pull-up operation.
+      assert(GenAnalysisUtils.memberClassIsInnerClass(info));
+      PsiClass aClass = (PsiClass)info.getMember();
+      throw new IncorrectOperationException("inner classes not handled yet : " + aClass);
 
-    private void doMoveImplementedClass(PsiSubstitutor substitutor, MemberInfo info) {
-        PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
-        PsiClass implementedIntf = (PsiClass) info.getMember();
-
-        final PsiReferenceList sourceReferenceList = info.getSourceReferenceList();    // the class containing the member source code
-
-
-        LOG.assertTrue(sourceReferenceList != null);
-
-
-        // Warning : the member might not be extracted from 'mySourceClass'. This is tested by  mySourceClass.equals(sourceReferenceList.getParent()) .
-
-        PsiJavaCodeReferenceElement ref = mySourceClass.equals(sourceReferenceList.getParent()) ?                   // debug : true in the test
-                                          RefactoringUtil.removeFromReferenceList(sourceReferenceList, implementedIntf) : // remove returns a copy
-                                          (PsiJavaCodeReferenceElement)RefactoringUtil.findReferenceToClass   (sourceReferenceList, implementedIntf).copy();     // Julien : make a copy because will be deleted
-
-
-        // added Julien
-        for (PsiClass c : sisterClasses) {
-            RefactoringUtil.removeFromReferenceList(c.getImplementsList(), implementedIntf);
-            // TODO: since mySourclass is in sisterClasses, don't need to removeFromReference... above.
-        }
-
-
-        if (ref == null) { throw new IncorrectOperationException("ref to 'implements' not found in "+mySourceClass)  ; }
-
-        // TODO : this should be done for all sister classes
-        RefactoringUtil.replaceMovedMemberTypeParameters(ref, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-
-        // find the target statement in the superclass/interface
-        final PsiReferenceList targetReferenceList =
-                 myTargetSuperClass.isInterface() ? myTargetSuperClass.getExtendsList() : myTargetSuperClass.getImplementsList();
-        LOG.assertTrue (targetReferenceList != null);
-
-        if (targetReferenceList == null) { throw new IncorrectOperationException("reference list not found in "+myTargetSuperClass)  ; }
-
-        targetReferenceList.add(ref);
+      // TODO : handle inner classes
     }
+  }
 
-    private void doMoveField(PsiSubstitutor substitutor, MemberInfo info) {
-        PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
-        PsiField field = (PsiField)info.getMember();
-        field.normalizeDeclaration();
-        RefactoringUtil.replaceMovedMemberTypeParameters(field, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-        fixReferencesToStatic(field);
-        if (myIsTargetInterface) {
-          PsiUtil.setModifierProperty(field, PsiModifier.PUBLIC, true);
+  private void doMoveField(PsiSubstitutor substitutor, MemberInfo info) {
+    PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
+    PsiField field = (PsiField)info.getMember();
+    field.normalizeDeclaration();
+    RefactoringUtil.replaceMovedMemberTypeParameters(field, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
+    fixReferencesToStatic(field);
+    if (myIsTargetInterface) {
+      PsiUtil.setModifierProperty(field, PsiModifier.PUBLIC, true);
+    }
+    final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(convertFieldToLanguage(field, myTargetSuperClass.getLanguage()));
+    myMembersAfterMove.add(movedElement);
+    field.delete();
+  }
+
+  private  void doMoveMethod(PsiSubstitutor substitutor, MemberInfo info) {
+    List<String> boundNames =  GenSubstitutionUtils.boundTypeNames(myTargetSuperClass);
+    PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
+    PsiMethod method = (PsiMethod)info.getMember();
+    PsiMethod sibling = method;
+    PsiMethod anchor = null;
+    while (sibling != null) {
+      sibling = PsiTreeUtil.getNextSiblingOfType(sibling, PsiMethod.class);
+      if (sibling != null) {
+        anchor = MethodSignatureUtil
+          .findMethodInSuperClassBySignatureInDerived(method.getContainingClass(), myTargetSuperClass,
+                                                      sibling.getSignature(PsiSubstitutor.EMPTY), false);
+        if (anchor != null) {
+          break;
         }
-        final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(field);
+      }
+    }
+    PsiMethod methodCopy = (PsiMethod)method.copy();
+    Language language = myTargetSuperClass.getLanguage();
+    final PsiMethod superClassMethod = myTargetSuperClass.findMethodBySignature(methodCopy, false);
+    if (superClassMethod != null && superClassMethod.findDeepestSuperMethods().length == 0 ||
+        method.findSuperMethods(myTargetSuperClass).length == 0) {
+      deleteOverrideAnnotationIfFound(methodCopy);
+    }
+    boolean isOriginalMethodAbstract = method.hasModifierProperty(PsiModifier.ABSTRACT) || method.hasModifierProperty(PsiModifier.DEFAULT);
+
+
+    // (rem Julien) case isToAbstract  (case of interest for pull-up-gen)
+
+    if (myIsTargetInterface || info.isToAbstract()) {
+      assert(this.myTargetSuperClass.hasModifierProperty(PsiModifier.ABSTRACT));  // and the interface case?
+      ChangeContextUtil.clearContextInfo(method);
+
+      // begin Julien
+      // 1) collect the sister methods (methods with the same type skeleton in sister classes).
+      final List<PsiMethod> sisterMethods = GenAnalysisUtils.findCompatibleMethods(method, sisterClasses);    // TODO : make that efficient (classes are traversed twice)
+
+
+
+      // 2)find which types have to be parameterized
+
+      final DependentSubstitution initialParameters = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory); // used later to know the type parameters of the initial clases TODO: improve that
+      DependentSubstitution       theMegaSubst      = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory);   // TODO: clone initialParameters above?
+
+
+      final GenSubstitutionUtils.ParamSubstitution sub = GenSubstitutionUtils.antiunify(sisterMethods, theMegaSubst, method.getName(), elementFactory, boundNames); // TODO : fix that (empty substitution)
+
+
+      // 3) build the abstract method
+      RefactoringUtil.makeMethodAbstract(myTargetSuperClass, methodCopy);
+
+
+      // 4) generify the abstract method
+      GenBuildUtils.generifyAbstractMethod(methodCopy, sub);
+
+      // 5) ??
+      RefactoringUtil.replaceMovedMemberTypeParameters(methodCopy, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
+
+      // 6) process javadoc
+      myJavaDocPolicy.processCopiedJavaDoc(methodCopy.getDocComment(), method.getDocComment(), isOriginalMethodAbstract);
+
+
+      // 7) Add type parameters to the superclass
+      DependentSubstitution newParameters = GenSubstitutionUtils.difference(theMegaSubst, initialParameters);
+      for (PsiTypeParameter t: newParameters.keySet()){
+        myTargetSuperClass.getTypeParameterList().add(t);
+      }
+
+
+      // 8) Add the new abstract method in the superclass (and get the new resulting method).
+      final PsiMember movedElement;
+      if (superClassMethod != null && superClassMethod.hasModifierProperty(PsiModifier.ABSTRACT)) {
+        movedElement = (PsiMember)superClassMethod.replace(convertMethodToLanguage(methodCopy, language));
+      }
+      else {
+        movedElement =
+          anchor != null ? (PsiMember)myTargetSuperClass.addBefore(methodCopy, anchor) : (PsiMember)myTargetSuperClass.add(methodCopy);
+      }
+
+      // 9) Add the parameters in sisterclasses extends statements
+      GenBuildUtils.updateExtendsStatementsInSisterClasses(newParameters, myTargetSuperClass, elementFactory);
+
+
+      // end Julien
+
+      // 10) Manage override annotations
+      // (rem Julien) We are still in the case where the superclass is an interface or the method is pulled up to an abstract method.
+      CodeStyleSettings styleSettings = CodeStyleSettingsManager.getSettings(method.getProject());
+      if (styleSettings.INSERT_OVERRIDE_ANNOTATION) {
+        // (rem Julien) @override appears in 1.5 but applies to methods coming from interfaces only since 1.6
+        if (PsiUtil.isLanguageLevel5OrHigher(mySourceClass) && !myIsTargetInterface || PsiUtil.isLanguageLevel6OrHigher(mySourceClass)) {
+          for (PsiMethod m : sisterMethods){ //Julien : added annotation for all sister methods
+            new AddAnnotationFix(Override.class.getName(), m).invoke(method.getProject(), null, mySourceClass.getContainingFile());
+          }
+        }
+      }
+      if (!PsiUtil.isLanguageLevel6OrHigher(mySourceClass) && myIsTargetInterface) {
+        // (rem Julien) the pulled-up method gets into an interface so that @override annotations must be deleted (Java 1.5 only)
+        if (isOriginalMethodAbstract) {
+          for (PsiMethod oMethod : OverridingMethodsSearch.search(method)) {
+            deleteOverrideAnnotationIfFound(oMethod);
+          }
+        }
+        deleteOverrideAnnotationIfFound(method);
+      }
+      // (rem Julien) The processing of the current element to pull-up is finished (other elements to pull-up can be processed).
+      myMembersAfterMove.add(movedElement);
+      if (isOriginalMethodAbstract) {
+        method.delete();
+        // FIXME : do the same in sister classes ?
+      }
+    }
+    else {
+      // (rem Julien) Here, the target superclass is neither abstract nor an interface
+      if (isOriginalMethodAbstract) {
+        PsiUtil.setModifierProperty(myTargetSuperClass, PsiModifier.ABSTRACT, true);
+      }
+      RefactoringUtil.replaceMovedMemberTypeParameters(methodCopy, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
+      fixReferencesToStatic(methodCopy);
+
+      if (superClassMethod != null && superClassMethod.hasModifierProperty(PsiModifier.ABSTRACT)) {
+        superClassMethod.replace(convertMethodToLanguage(methodCopy, language));
+      }
+      else {
+        final PsiMember movedElement =
+          anchor != null ? (PsiMember)myTargetSuperClass.addBefore(convertMethodToLanguage(methodCopy,
+                                                                                           language), anchor) : (PsiMember)myTargetSuperClass.add(
+            convertMethodToLanguage(
+              methodCopy, language));
         myMembersAfterMove.add(movedElement);
-        field.delete();
+      }
+      method.delete();
     }
+  }
 
-    private void doMoveMethod(PsiSubstitutor substitutor, MemberInfo info) {
-        List<String> boundNames =  GenSubstitutionUtils.boundTypeNames(myTargetSuperClass);
-        PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject);
-        PsiMethod method = (PsiMethod)info.getMember();
-        PsiMethod methodCopy = (PsiMethod)method.copy();
-        if (method.findDeepestSuperMethods().length == 0) {
-          deleteOverrideAnnotationIfFound(methodCopy);
-        }
-        final boolean isOriginalMethodAbstract = method.hasModifierProperty(PsiModifier.ABSTRACT);
-
-
-        // (rem Julien) case isToAbstract  (case of interest for pull-up-gen)
-
-        if (myIsTargetInterface || info.isToAbstract()) {
-          assert(this.myTargetSuperClass.hasModifierProperty(PsiModifier.ABSTRACT));  // and the interface case?
-          ChangeContextUtil.clearContextInfo(method);
-
-          // begin Julien
-          // 1) collect the sister methods (methods with the same type skeleton in sister classes).
-          final List<PsiMethod> sisterMethods = GenAnalysisUtils.findCompatibleMethods(method, sisterClasses);    // TODO : make that efficient (classes are traversed twice)
-
-
-
-          // 2)find which types have to be parameterized
-
-          final DependentSubstitution initialParameters = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory); // used later to know the type parameters of the initial clases TODO: improve that
-          DependentSubstitution       theMegaSubst      = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory);   // TODO: clone initialParameters above?
-
-
-          final GenSubstitutionUtils.ParamSubstitution sub = GenSubstitutionUtils.antiunify(sisterMethods, theMegaSubst, method.getName(), elementFactory, boundNames); // TODO : fix that (empty substitution)
-
-
-          // 3) build the abstract method
-          RefactoringUtil.makeMethodAbstract(myTargetSuperClass, methodCopy);
-
-
-          // 4) generify the abstract method
-          GenBuildUtils.generifyAbstractMethod(methodCopy, sub);
-
-
-          // 5) ??
-          RefactoringUtil.replaceMovedMemberTypeParameters(methodCopy, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-
-
-          // 6) process javadoc
-          myJavaDocPolicy.processCopiedJavaDoc(methodCopy.getDocComment(), method.getDocComment(), isOriginalMethodAbstract);
-
-
-          // 7) Add type parameters to the superclass
-          DependentSubstitution newParameters = GenSubstitutionUtils.difference(theMegaSubst, initialParameters);
-          for (PsiTypeParameter t: newParameters.keySet()){
-              myTargetSuperClass.getTypeParameterList().add(t);
-          }
-
-
-          // 8) Add the new abstract method in the superclass (and get the new resulting method).
-          final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(methodCopy);
-
-
-          // 9) Add the parameters in sisterclasses extends statements
-          GenBuildUtils.updateExtendsStatementsInSisterClasses(newParameters, myTargetSuperClass, elementFactory);
-
-
-          // end Julien
-
-          // 10) Manage override annotations
-          // (rem Julien) We are still in the case where the superclass is an interface or the method is pulled up to an abstract method.
-          CodeStyleSettings styleSettings = CodeStyleSettingsManager.getSettings(method.getProject());
-          if (styleSettings.INSERT_OVERRIDE_ANNOTATION) {
-            // (rem Julien) @override appears in 1.5 but applies to methods coming from interfaces only since 1.6
-            if (PsiUtil.isLanguageLevel5OrHigher(mySourceClass) && !myTargetSuperClass.isInterface() || PsiUtil.isLanguageLevel6OrHigher(mySourceClass)) {
-              for (PsiMethod m : sisterMethods){ //Julien : added annotation for all sister methods
-                new AddAnnotationFix(Override.class.getName(), m).invoke(method.getProject(), null, mySourceClass.getContainingFile());
-              }
-            }
-          }
-          if (!PsiUtil.isLanguageLevel6OrHigher(mySourceClass) && myTargetSuperClass.isInterface()) {
-          // (rem Julien) the pulled-up method gets into an interface so that @override annotations must be deleted (Java 1.5 only)
-            if (isOriginalMethodAbstract) {
-              for (PsiMethod oMethod : OverridingMethodsSearch.search(method)) {
-                deleteOverrideAnnotationIfFound(oMethod);
-              }
-            }
-            deleteOverrideAnnotationIfFound(method);
-          }
-
-          // (rem Julien) The processing of the current element to pull-up is finished (other elements to pull-up can be processed).
-          myMembersAfterMove.add(movedElement);
-
-          if (isOriginalMethodAbstract) {
-            method.delete(); // FIXME : do the same in sister classes ?
-          }
-        } // (rem Julien) endif
-
-
-        else { // (rem Julien) Here, the target superclass is neither abstract nor an interface
-          if (isOriginalMethodAbstract) {
-            PsiUtil.setModifierProperty(myTargetSuperClass, PsiModifier.ABSTRACT, true);
-          }
-          RefactoringUtil.replaceMovedMemberTypeParameters(methodCopy, PsiUtil.typeParametersIterable(mySourceClass), substitutor, elementFactory);
-          fixReferencesToStatic(methodCopy);
-          final PsiMethod superClassMethod = myTargetSuperClass.findMethodBySignature(methodCopy, false);
-          if (superClassMethod != null && superClassMethod.hasModifierProperty(PsiModifier.ABSTRACT)) {
-            superClassMethod.replace(methodCopy);
-          }
-          else {
-            final PsiMember movedElement = (PsiMember)myTargetSuperClass.add(methodCopy);
-            myMembersAfterMove.add(movedElement);
-          }
-          method.delete();
-        }
+  private static PsiMethod convertMethodToLanguage(PsiMethod method, Language language) {
+    if (method.getLanguage().equals(language)) {
+      return method;
     }
+    return JVMElementFactories.getFactory(language, method.getProject()).createMethodFromText(method.getText(), null);
+  }
 
-    @Deprecated
-    void initSisterClasses(MemberInfo[] membersToMove)
+  private static PsiField convertFieldToLanguage(PsiField field, Language language) {
+    if (field.getLanguage().equals(language)) {
+      return field;
+    }
+    return JVMElementFactories.getFactory(language, field.getProject()).createField(field.getName(), field.getType());
+  }
+
+  private static PsiClass convertClassToLanguage(PsiClass clazz, Language language) {
+    //if (clazz.getLanguage().equals(language)) {
+    //  return clazz;
+    //}
+    //PsiClass newClass = JVMElementFactories.getFactory(language, clazz.getProject()).createClass(clazz.getName());
+    return clazz;
+  }
+
+  @Deprecated
+  void initSisterClasses(MemberInfo[] membersToMove)
             throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
-        sisterClasses = computeSisterClasses(membersToMove);
-    }
+    sisterClasses = computeSisterClasses(membersToMove);
+  }
 
-    public Collection<PsiClass> getSisterClasses(MemberInfo[] membersToMove)
+  public Collection<PsiClass> getSisterClasses(MemberInfo[] membersToMove)
             throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
-        if (sisterClasses == null) initSisterClasses(membersToMove);
-        return sisterClasses;
-    }
+    if (sisterClasses == null) initSisterClasses(membersToMove);
+    return sisterClasses;
+  }
 
-    @Deprecated
-    @NotNull
-    Collection<PsiClass> computeSisterClasses(@NotNull MemberInfo[] membersToMove)
+  @Deprecated
+  Collection<PsiClass> computeSisterClasses(MemberInfo[] membersToMove)
             throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
         if (membersToMove.length == 0) return new HashSet(); // Empty
 
@@ -411,7 +402,7 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
             // Peut-on prendre l'intersection? (réfléchir)
         }
         return baseSet;
-    }
+  }
 
 
   private static void deleteOverrideAnnotationIfFound(PsiMethod oMethod) {
@@ -436,7 +427,7 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
     }
   }
 
-@Override
+  @Override
   public void updateUsage(PsiElement element) {
     if (element instanceof PsiReferenceExpression) {
       PsiExpression qualifierExpression = ((PsiReferenceExpression)element).getQualifierExpression();
@@ -543,7 +534,6 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
       }
 
       PsiStatement assignmentStatement = (PsiStatement)constructor.getBody().add(initializer.initializer);
-
 
       PsiManager manager = PsiManager.getInstance(myProject);
       ChangeContextUtil.decodeContextInfo(assignmentStatement, myTargetSuperClass, RefactoringChangeUtil.createThisExpression(manager, null));
@@ -790,6 +780,7 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
     }
     return constructorsToSubConstructors;
   }
+
   private void fixReferencesToStatic(PsiElement classMember) throws IncorrectOperationException {
     final StaticReferencesCollector collector = new StaticReferencesCollector();
     classMember.accept(collector);
@@ -821,11 +812,9 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
     private ArrayList<PsiJavaCodeReferenceElement> myReferences;
     private ArrayList<PsiElement> myReferees;
     private ArrayList<PsiClass> myRefereeClasses;
-    //private final Set<PsiMember> myMovedMembers;
 
     private StaticReferencesCollector() {
       super(mySourceClass);
-      //myMovedMembers = movedMembers;
       myReferees = new ArrayList<PsiElement>();
       myRefereeClasses = new ArrayList<PsiClass>();
       myReferences = new ArrayList<PsiJavaCodeReferenceElement>();
@@ -906,7 +895,6 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
       expression.replace(myThisExpression);
     }
 
-
     @Override
     public void visitClass(PsiClass aClass) {
       // do nothing
@@ -929,7 +917,6 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
       final PsiMethod methodFromSuper = myTargetSuperClass.findMethodBySignature(method, false);
       return methodFromSuper == null;
     }
-
   }
 
   private boolean willBeUsedInSubclass(PsiElement member, PsiClass superclass, PsiClass subclass) {
@@ -941,5 +928,4 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
     }
     return false;
   }
-
 }

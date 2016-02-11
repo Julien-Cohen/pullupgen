@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,16 @@
  * Copyright 2012 Université de Nantes for those contributions.            
  */
 
+/* Up-to-date w.r.t. Intellij commit of Sept 20, 2013. */
+/* Up-to-date w.r.t. Intellij commit of Oct 1, 2013. */
+/* Up-to-date w.r.t. Intellij commit of Apr 8, 2014. */
+/* Up-to-date w.r.t. Intellij commit of Aug 14, 2014. */
+
 package com.intellij.refactoring.memberPullUp;
 
+import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ScrollType;
@@ -51,6 +57,7 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
   private PsiClass mySubclass;
   private Project myProject;
 
+  @Override
   public void invoke(@NotNull Project project, Editor editor, PsiFile file, DataContext dataContext) {
     int offset = editor.getCaretModel().getOffset();
     editor.getScrollingModel().scrollToCaret(ScrollType.MAKE_VISIBLE);
@@ -75,7 +82,7 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
     }
   }
 
-
+  @Override
   public void invoke(@NotNull final Project project, @NotNull PsiElement[] elements, DataContext dataContext) {
     if (elements.length != 1) return;    // Julien: accept only one element
     myProject = project;
@@ -103,7 +110,7 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
   }
 
   private void invoke(Project project, DataContext dataContext, PsiClass aClass, PsiElement aMember) {
-    final Editor editor = dataContext != null ? PlatformDataKeys.EDITOR.getData(dataContext) : null;
+    final Editor editor = dataContext != null ? CommonDataKeys.EDITOR.getData(dataContext) : null;
     if (aClass == null) {
       String message =
         RefactoringBundle.getCannotRefactorMessage(RefactoringBundle.message("is.not.supported.in.the.current.context", REFACTORING_NAME));
@@ -128,6 +135,7 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
 
     mySubclass = aClass;
     MemberInfoStorage memberInfoStorage = new MemberInfoStorage(mySubclass, new MemberInfo.Filter<PsiMember>() {
+      @Override
       public boolean includeMember(PsiMember element) {
         return true;
       }
@@ -153,6 +161,8 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
   }
 
 
+
+  @Override
   public boolean checkConflicts(final PullUpGenDialog dialog) {
     final List<MemberInfo> infos = dialog.getSelectedMemberInfos();
     final MemberInfo[] memberInfos = infos.toArray(new MemberInfo[infos.size()]);
@@ -160,11 +170,18 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
     if (!checkWritable(superClass, memberInfos)) return false;
     final MultiMap<PsiElement, String> conflicts = new MultiMap<PsiElement, String>();
     if (!ProgressManager.getInstance().runProcessWithProgressSynchronously(new Runnable() {
+      @Override
       public void run() {
-        final PsiDirectory targetDirectory = superClass.getContainingFile().getContainingDirectory();
-        final PsiPackage targetPackage = targetDirectory != null ? JavaDirectoryService.getInstance().getPackage(targetDirectory) : null;
-        conflicts
-          .putAllValues(PullUpGenConflictsUtil.checkConflicts(memberInfos, mySubclass, superClass, targetPackage, targetDirectory, dialog.getContainmentVerifier()));
+        ApplicationManager.getApplication().runReadAction(new Runnable() {
+          @Override
+          public void run() {
+            final PsiDirectory targetDirectory = superClass.getContainingFile().getContainingDirectory();
+            final PsiPackage targetPackage = targetDirectory != null ? JavaDirectoryService.getInstance().getPackage(targetDirectory) : null;
+            conflicts
+              .putAllValues(PullUpConflictsUtil.checkConflicts(memberInfos, mySubclass, superClass, targetPackage, targetDirectory, dialog.getContainmentVerifier()));
+          }
+        });
+
       }
     }, RefactoringBundle.message("detecting.possible.conflicts"), true, myProject)) return false;
     if (!conflicts.isEmpty()) {
@@ -186,6 +203,7 @@ public class JavaPullUpGenHandler implements RefactoringActionHandler, PullUpGen
     return true;
   }
 
+  @Override
   public boolean isEnabledOnElements(PsiElement[] elements) {
     /*
     if (elements.length == 1) {

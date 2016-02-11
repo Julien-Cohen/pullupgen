@@ -21,5 +21,3 @@ package com.intellij.refactoring.memberPullUp;
 public interface PullUpGenHelperFactory {
   PullUpGenHelper createPullUpGenHelper(PullUpGenData data);
 }
-
-// FIXME : not used?

@@ -22,11 +22,22 @@
  * To change template for new class use
  * Code Style | Class Templates options (Tools | IDE Options).
  */
+
+/*
+ * Extended by Julien Cohen (Ascola team, Univ. Nantes), 2012, 2013.
+ * Copyright 2012, 2013 Université de Nantes for those contributions.
+ */
+
+/* Up-to-date w.r.t. Intellij commit of Oct 24, 2013. */
+/* Up-to-date w.r.t. Intellij commit of Dec 5,  2013. */
+/* Up-to-date w.r.t. Intellij commit of Jan 9,  2014. */
+/* Up-to-date w.r.t. Intellij commit of Aug 15, 2014. */
+/* Up-to-date w.r.t. Intellij commit of Nov 21, 2014. */
+
 package com.intellij.refactoring.memberPullUp;
 
 import com.intellij.analysis.AnalysisScope;
 import com.intellij.lang.Language;
-import com.intellij.lang.LanguageExtension;
 import com.intellij.lang.findUsages.DescriptiveNameUtil;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
@@ -42,9 +53,8 @@ import com.intellij.psi.util.TypeConversionUtil;
 import com.intellij.refactoring.BaseRefactoringProcessor;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoBase;
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
-import com.intellij.refactoring.genUtils.GenBuildUtils;
 import com.intellij.refactoring.listeners.JavaRefactoringListenerManager;
+import com.intellij.refactoring.listeners.RefactoringEventData;
 import com.intellij.refactoring.listeners.impl.JavaRefactoringListenerManagerImpl;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringUIUtil;
@@ -52,6 +62,7 @@ import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.usageView.UsageViewDescriptor;
+import com.intellij.util.Function;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.Query;
 import com.intellij.util.containers.ContainerUtil;
@@ -59,6 +70,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;
+import com.intellij.refactoring.genUtils.GenBuildUtils;
+
 
 public class PullUpGenProcessor extends BaseRefactoringProcessor implements PullUpGenData {
   private static final Logger LOG = Logger.getInstance(PullUpGenProcessor.class);
@@ -69,10 +84,9 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
   private final DocCommentPolicy myJavaDocPolicy;
   private Set<PsiMember> myMembersAfterMove = null; // created by moveMembersToBase,  returned by getMovedMembers !!!
   private Set<PsiMember> myMovedMembers = null;     // created by moveMembersToBase, returned by getMembersToMove in origina intellij!!!
-  protected Map<Language, PullUpGenHelper<MemberInfo>> myProcessors = ContainerUtil.newHashMap(); //made protected (J)
+  private final Map<Language, PullUpGenHelper<MemberInfo>> myProcessors = ContainerUtil.newHashMap();
 
-  @Nullable private Collection<PsiClass> mySisterClasses ; //(J)
-  //private PullUpGenHelper<MemberInfo> myProcessor;
+  private Collection<PsiClass> mySisterClasses ; //(J)
 
   public PullUpGenProcessor(PsiClass sourceClass, Collection<PsiClass> sisterClasses, PsiClass targetSuperClass, MemberInfo[] membersToMove, DocCommentPolicy javaDocPolicy) {
     super(sourceClass.getProject());
@@ -80,10 +94,7 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
     myTargetSuperClass = targetSuperClass;
     myMembersToMove = membersToMove;
     myJavaDocPolicy = javaDocPolicy;
-
     //myProcessor = getProcessor(membersToMove[0]); this was an error, you cannot use that now because all instance variables have not been initialized
-
-
     mySisterClasses = sisterClasses; //(J)
   }
 
@@ -91,11 +102,13 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
     this(sourceClass, null, targetSuperClass, membersToMove, javaDocPolicy);
   }
 
+  @Override
   @NotNull
   protected UsageViewDescriptor createUsageViewDescriptor(UsageInfo[] usages) {
     return new PullUpUsageViewDescriptor();
   }
 
+  @Override
   @NotNull
   protected UsageInfo[] findUsages() {
     final List<UsageInfo> result = new ArrayList<UsageInfo>();
@@ -110,6 +123,35 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
     return result.isEmpty() ? UsageInfo.EMPTY_ARRAY : result.toArray(new UsageInfo[result.size()]);
   }
 
+  @Nullable
+  @Override
+  protected String getRefactoringId() {
+    return "refactoring.pull.up";
+  }
+
+  @Nullable
+  @Override
+  protected RefactoringEventData getBeforeData() {
+    RefactoringEventData data = new RefactoringEventData();
+    data.addElement(mySourceClass);
+    data.addMembers(myMembersToMove, new Function<MemberInfo, PsiElement>() {
+      @Override
+      public PsiElement fun(MemberInfo info) {
+        return info.getMember();
+      }
+    });
+    return data;
+  }
+
+  @Nullable
+  @Override
+  protected RefactoringEventData getAfterData(UsageInfo[] usages) {
+    final RefactoringEventData data = new RefactoringEventData();
+    data.addElement(myTargetSuperClass);
+    return data;
+  }
+
+  @Override
   protected void performRefactoring(UsageInfo[] usages) {
    try{
     moveMembersToBase(); // initializes myMovedMembers and myMembersAfterMove
@@ -135,156 +177,125 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
   }
 
   private void processMethodsDuplicates() {
-    if (!myTargetSuperClass.isValid()) return;
     ProgressManager.getInstance().runProcessWithProgressSynchronously(new Runnable() {
       @Override
       public void run() {
-        final Query<PsiClass> search = ClassInheritorsSearch.search(myTargetSuperClass);
-        final Set<VirtualFile> hierarchyFiles = new HashSet<VirtualFile>();
-        for (PsiClass aClass : search) {
-          final PsiFile containingFile = aClass.getContainingFile();
-          if (containingFile != null) {
-            final VirtualFile virtualFile = containingFile.getVirtualFile();
-            if (virtualFile != null) {
-              hierarchyFiles.add(virtualFile);
+        ApplicationManager.getApplication().runReadAction(new Runnable() {
+          @Override
+          public void run() {
+            if (!myTargetSuperClass.isValid()) return;
+            final Query<PsiClass> search = ClassInheritorsSearch.search(myTargetSuperClass);
+            final Set<VirtualFile> hierarchyFiles = new HashSet<VirtualFile>();
+            for (PsiClass aClass : search) {
+              final PsiFile containingFile = aClass.getContainingFile();
+              if (containingFile != null) {
+                final VirtualFile virtualFile = containingFile.getVirtualFile();
+                if (virtualFile != null) {
+                  hierarchyFiles.add(virtualFile);
+                }
+              }
             }
-          }
-        }
-        final Set<PsiMember> methodsToSearchDuplicates = new HashSet<PsiMember>();
-        for (PsiMember psiMember : myMembersAfterMove) {
-          if (psiMember instanceof PsiMethod && psiMember.isValid() && ((PsiMethod)psiMember).getBody() != null) {
-            methodsToSearchDuplicates.add(psiMember);
-          }
-        }
+            final Set<PsiMember> methodsToSearchDuplicates = new HashSet<PsiMember>();
+            for (PsiMember psiMember : myMembersAfterMove) {
+              if (psiMember instanceof PsiMethod && psiMember.isValid() && ((PsiMethod)psiMember).getBody() != null) {
+                methodsToSearchDuplicates.add(psiMember);
+              }
+            }
 
-        MethodDuplicatesHandler.invokeOnScope(myProject, methodsToSearchDuplicates, new AnalysisScope(myProject, hierarchyFiles), true);
+            MethodDuplicatesHandler.invokeOnScope(myProject, methodsToSearchDuplicates, new AnalysisScope(myProject, hierarchyFiles), true);
+          }
+        });
       }
     }, MethodDuplicatesHandler.REFACTORING_NAME, true, myProject);
   }
 
+  @Override
   protected String getCommandName() {
     return RefactoringBundle.message("pullUp.command", DescriptiveNameUtil.getDescriptiveName(mySourceClass));
   }
 
+  public void moveMembersToBase() throws IncorrectOperationException, GenAnalysisUtils.AmbiguousOverloading, GenAnalysisUtils.MemberNotImplemented {
+    myMovedMembers = ContainerUtil.newHashSet();
+    myMembersAfterMove = ContainerUtil.newHashSet();
+
+    assert (myMembersAfterMove != null);
+    assert (myMembersToMove != null && myMembersToMove.length > 0);
+    // (Julien) compute the set of sister methods (which have all the compatible members)
+    if (mySisterClasses == null )
+      mySisterClasses = (getProcessor(myMembersToMove[0])).getSisterClasses(myMembersToMove) ; // processor is a JavaPullUpGenHelper
+
+    // build aux sets
+    for (MemberInfo info : myMembersToMove) {
+      myMovedMembers.add(info.getMember());
+    }
+
+    final PsiSubstitutor substitutor = upDownSuperClassSubstitutor();
+    // (rem Julien) a PsiSubstitutor represents a mapping between type parameters and their values
 
 
-  public void moveMembersToBase()
-            throws IncorrectOperationException, GenAnalysisUtils.AmbiguousOverloading, GenAnalysisUtils.MemberNotImplemented {
 
-        myMovedMembers = ContainerUtil.newHashSet();
-        myMembersAfterMove = ContainerUtil.newHashSet();
-        assert (myMembersAfterMove != null);
+    for (MemberInfo info : myMembersToMove) {
+      PullUpGenHelper<MemberInfo> processor = getProcessor(info);
 
-        assert (myMembersToMove != null && myMembersToMove.length > 0);
-
-        // (Julien) compute the set of sister methods (which have all the compatible members)
-        if (mySisterClasses == null )
-          mySisterClasses = (getProcessor(myMembersToMove[0])).getSisterClasses(myMembersToMove) ; // processor is a JavaPullUpGenHelper
-
-        // build aux sets
-        for (MemberInfo info : myMembersToMove) {
-            myMovedMembers.add(info.getMember());
-        }
-
-        final PsiSubstitutor substitutor = upDownSuperClassSubstitutor();    // (rem Julien) a PsiSubstitutor represents a mapping between type parameters and their values
-
-
-        // correct private member visibility
-        for (MemberInfo info : myMembersToMove) {
-            PullUpGenHelper<MemberInfo> processor = getProcessor(info);
-
-            if (info.getMember() instanceof PsiClass && info.getOverrides() != null) continue;
-              processor.setCorrectVisibility(info);
-              processor.encodeContextInfo(info);
-
-
-        }
-
-
-        assert (mySisterClasses != null);
-
-        final PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(myProject); // FIXME : pas dans l'original...
-
-        for (PsiClass c : mySisterClasses) GenBuildUtils.alignParameters(myTargetSuperClass, c, elementFactory);
-
-        // do actual move (for each member to move)
-        for (MemberInfo info : myMembersToMove) {
-            getProcessor(info).move(info, substitutor);
-        }
-
-        //ExplicitSuperDeleter explicitSuperDeleter = new ExplicitSuperDeleter();
-        for (PsiMember member : myMembersAfterMove) { // FIXME (initialized to empty? yes but filled in JavaPullUpGenHelper)
-           getProcessor(member).postProcessMember(member);
-           final JavaRefactoringListenerManager listenerManager = JavaRefactoringListenerManager.getInstance(member.getProject());
-           ((JavaRefactoringListenerManagerImpl)listenerManager).fireMemberMoved(mySourceClass, member);
-        }
-        // explicitSuperDeleter.fixSupers(); // J : why is it removed?
-
+      if (!(info.getMember() instanceof PsiClass) || info.getOverrides() == null) {
+        processor.setCorrectVisibility(info);
+        processor.encodeContextInfo(info);
+      }
 
     }
 
+    assert (mySisterClasses != null);
+
+    for (PsiClass c : mySisterClasses) GenBuildUtils.alignParameters(myTargetSuperClass, c, JavaPsiFacade.getElementFactory(myProject));
+
+    // do actual move (for each member to move)
+    for (MemberInfo info : myMembersToMove) {
+        getProcessor(info).move(info, substitutor);
+    }
+
+    for (PsiMember member : myMembersAfterMove) { // FIXME (initialized to empty? yes but filled in JavaPullUpGenHelper)
+       getProcessor(member).postProcessMember(member);
+
+      final JavaRefactoringListenerManager listenerManager = JavaRefactoringListenerManager.getInstance(myProject);
+      ((JavaRefactoringListenerManagerImpl)listenerManager).fireMemberMoved(mySourceClass, member);
+    }
+  }
+
   private PullUpGenHelper<MemberInfo> getProcessor(@NotNull PsiElement element) {
-    assert (myMembersAfterMove != null) ;
-    assert (myMovedMembers != null) ;
     Language language = element.getLanguage();
     return getProcessor(language);
   }
 
-
-
-
-  // changed from private to protected (J)
-  protected PullUpGenHelper<MemberInfo> getProcessor(Language language) { // FIXME : Reafactor that code.
+  private PullUpGenHelper<MemberInfo> getProcessor(Language language) { // FIXME : Reafactor that code.
       assert (myMembersAfterMove != null) ;
       assert (myMovedMembers != null) ;
 
     PullUpGenHelper<MemberInfo> helper = myProcessors.get(language);
     if (helper == null) {
 
-        final LanguageExtension<PullUpHelperFactory> instance = PullUpGenHelper.INSTANCE; // to debug (can be inlined)
+      PullUpGenHelperFactory factory = null;
+      for (Object f : PullUpGenHelper.INSTANCE.forKey(language)) //  FIXME : find a better solution
+          {
+             if (f instanceof JavaPullUpGenHelperFactory)
+                 factory = (PullUpGenHelperFactory) f ;
+          }
 
-        // FIXME
-        /*System.out.println(instance); // objet
-        System.out.println(language); // JAVA
-        System.out.println("instance for langage : " + instance.forLanguage(language)); // com.intellij.refactoring.memberPullUp.JavaPullUpHelperFactory@1a01125
-        System.out.println("instance for key : " + instance.forKey(language)); // [com.intellij.refactoring.memberPullUp.JavaPullUpHelperFactory@1a01125, com.intellij.refactoring.memberPullUp.JavaPullUpGenHelperFactory@1c59c26]
-*/
-        @Nullable PullUpHelperFactory factory = null;
-        for (Object f : instance.forKey(language)) //  FIXME : find a better solution
-            {
-               if (f instanceof JavaPullUpGenHelperFactory)
-                   factory = (PullUpHelperFactory) f ;
-               /* else System.out.println ("Found another factory of type " + f.getClass().getName() + ", not used."); */
-            }
+      if ( factory == null )  {
+        throw new Error ("helper null (convenient PullUpGenHelperFactory not found).");
+      }
 
+      if (factory instanceof JavaPullUpGenHelperFactory ) {
+          JavaPullUpGenHelperFactory factory2 = (JavaPullUpGenHelperFactory) factory;
+          helper = factory2.createPullUpGenHelper(this); // at this point, myMovedMembers and myMembersAfterMove should have been initialized
+      }
+      else new Error ("JavaPullUpGenHelperFactory not found.");
 
-        if ( factory == null )  {
-                /* System.out.println("helper null (convenient PullUpGenHelperFactory not found).");
-                System.out.println(instance); // objet
-                System.out.println(language); // JAVA
-                System.out.println(instance.forLanguage(language)); // null
-                System.out.println(instance.forKey(language)); // [] */
-                throw new Error ("helper null (convenient PullUpGenHelperFactory not found).");
-        }
-
-        JavaPullUpGenHelperFactory factory2 = null ;
-        if (factory instanceof JavaPullUpGenHelperFactory )
-            factory2 = (JavaPullUpGenHelperFactory)factory;
-        else new Error ("JavaPullUpGenHelperFactory not found.");
-
-
-        helper = factory2.createPullUpGenHelper(this); // at this point, myMovedMembers and myMembersAfterMove should have been initialized
       myProcessors.put(language, helper);
     }
     return helper;
   }
 
-
-
-
   private PullUpGenHelper<MemberInfo> getProcessor(@NotNull MemberInfo info) {
-    assert (myMembersAfterMove != null) ;
-    assert (myMovedMembers != null) ;
     PsiReferenceList refList = info.getSourceReferenceList();
     if (refList != null) {
       return getProcessor(refList.getLanguage());
@@ -355,60 +366,47 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
     return myJavaDocPolicy;
   }
 
-    public static Set<PsiMember> convert(MemberInfo[] t){
-        Set<PsiMember> s = new HashSet<PsiMember>();
-        for (int i = 0 ; i< t.length ; i++ ) s.add(t[i].getMember());
-        return s;
-    }
+  public Collection<PsiClass> getSisterClasses() {return mySisterClasses ;}
+
+  public static Set<PsiMember> convert(MemberInfo[] t){
+    Set<PsiMember> s = new HashSet<PsiMember>();
+    for (int i = 0 ; i< t.length ; i++ ) s.add(t[i].getMember());
+    return s;
+  }
 
   @Override
-  @NotNull
   public Set<PsiMember> getMembersToMove() {
-      assert (myMembersToMove != null) ;
       return convert(myMembersToMove);
   }
 
-
-/*
-  // Return the set of members selected by the user and that has to be moved.
   @Override
-  @NotNull
-  public Set<PsiMember> getMembersToMove() {
-        return myMovedMembers;
-  }*/
-
-  @Override
-  @NotNull
   public Set<PsiMember> getMovedMembers() {
-    assert(myMembersAfterMove != null)  ;
     return myMembersAfterMove;
   }
-
-
-
 
   @Override
   public Project getProject() {
     return myProject;
   }
 
-  public Collection<PsiClass> getSisterClasses() {return mySisterClasses ;}
-
-
   private class PullUpUsageViewDescriptor implements UsageViewDescriptor {
+    @Override
     public String getProcessedElementsHeader() {
       return "Pull up members from";
     }
 
+    @Override
     @NotNull
     public PsiElement[] getElements() {
       return new PsiElement[]{mySourceClass};
     }
 
+    @Override
     public String getCodeReferencesText(int usagesCount, int filesCount) {
       return "Class to pull up members to \"" + RefactoringUIUtil.getDescription(myTargetSuperClass, true) + "\"";
     }
 
+    @Override
     public String getCommentReferencesText(int usagesCount, int filesCount) {
       return null;
     }
