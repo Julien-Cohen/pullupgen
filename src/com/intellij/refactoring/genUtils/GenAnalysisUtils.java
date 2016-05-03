@@ -1,9 +1,6 @@
 package com.intellij.refactoring.genUtils;
 
 import com.intellij.psi.*;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.GlobalSearchScopes;
-import com.intellij.psi.search.searches.ClassInheritorsSearch;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.util.IncorrectOperationException;
 import org.jetbrains.annotations.NotNull;
@@ -187,7 +184,7 @@ public class GenAnalysisUtils {
     public static boolean checkSubClassesHaveSameMethod(PsiMethod m, PsiClass superClass){
 
         // Algorithmic skeleton : FORALL_BRANCHES : hasSameMethod
-        for (PsiClass c: findDirectSubClassesInDirectory(superClass)){
+        for (PsiClass c: SisterClassesUtil.findDirectSubClassesInDirectory(superClass)){
             if (!hasSameMethod(m, c))  {
                 // OK only if interface/abstract-class and the method is in all subclasses
                 if ( ! ( (c.isInterface() || isAbstractClass(c)) && checkSubClassesHaveSameMethod(m, c))) return false;
@@ -201,7 +198,7 @@ public class GenAnalysisUtils {
     public static boolean checkSubClassesImplementInterface(PsiClassType t, PsiClass superClass){
 
         // Algorithmic skeleton : FORALL_BRANCHES : hasSameImplements
-        for (PsiClass c: findDirectSubClassesInDirectory(superClass)){
+        for (PsiClass c: SisterClassesUtil.findDirectSubClassesInDirectory(superClass)){
             if (!hasSameImplements(c, t))  {
                 // OK only if interface/abstract-class and the method is in all subclasses
                 if ( ! ( (c.isInterface() || isAbstractClass(c)) && checkSubClassesImplementInterface(t, c))) return false;
@@ -235,7 +232,7 @@ public class GenAnalysisUtils {
             throws MemberNotImplemented
     {
         assert (i.isInterface());
-        final Collection <PsiClass> directSubClasses = findDirectSubClassesInDirectory(superClass);
+        final Collection <PsiClass> directSubClasses = SisterClassesUtil.findDirectSubClassesInDirectory(superClass);
         for (PsiClass c: directSubClasses){
             if (! hasCompatibleImplements(c, i)) throw new MemberNotImplemented(i, c);
         }
@@ -335,21 +332,6 @@ public class GenAnalysisUtils {
 
 
 
-    /* ------ Lookup for sub-classes / sister-classes  ------ */
-    /* We make the assumption that the superclass and the sisterclass are all in the same directory */
-
-
-    public static Collection<PsiClass> findDirectSubClassesInDirectory(@NotNull PsiClass superClass) {
-        final PsiDirectory containingDirectory = ((PsiJavaFile) superClass.getContainingFile()).getContainingDirectory();
-        final GlobalSearchScope dirScope = GlobalSearchScopes.directoryScope(containingDirectory, false);
-        return ClassInheritorsSearch.search(superClass, dirScope, false).findAll();
-    }
-
-    public static Collection<PsiClass> findSisterClassesInDirectory(PsiClass subclass) {
-        return findDirectSubClassesInDirectory(subclass.getSuperClass());
-    }
-
-
 
 
 
@@ -386,7 +368,7 @@ public class GenAnalysisUtils {
             throws AmbiguousOverloading, MemberNotImplemented {
 
         final Collection<PsiClass> res = new LinkedList<PsiClass>();
-        final Collection <PsiClass> directSubClasses = findDirectSubClassesInDirectory(superClass);
+        final Collection <PsiClass> directSubClasses = SisterClassesUtil.findDirectSubClassesInDirectory(superClass);
 
         for (PsiClass c: directSubClasses){
             final int count = hasCompatibleMethod(m, c, checkpublic);

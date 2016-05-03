@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ package com.intellij.refactoring.extractSuperclass;
 
 import com.intellij.history.LocalHistory;
 import com.intellij.history.LocalHistoryAction;
+import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
@@ -62,6 +62,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
 
   public boolean myUseGenericUnification = false;
 
+  @Override
   public void invoke(@NotNull Project project, Editor editor, PsiFile file, DataContext dataContext) {
     editor.getScrollingModel().scrollToCaret(ScrollType.MAKE_VISIBLE);
     int offset = editor.getCaretModel().getOffset();
@@ -80,6 +81,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
     }
   }
 
+  @Override
   public void invoke(@NotNull final Project project, @NotNull PsiElement[] elements, DataContext dataContext) {
     if (elements.length != 1) return;
 
@@ -88,7 +90,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
 
     if (!CommonRefactoringUtil.checkReadOnlyStatus(project, mySubclass)) return;
 
-    Editor editor = dataContext != null ? PlatformDataKeys.EDITOR.getData(dataContext) : null;
+    Editor editor = dataContext != null ? CommonDataKeys.EDITOR.getData(dataContext) : null;
     if (mySubclass.isInterface()) {
       String message =
         RefactoringBundle.getCannotRefactorMessage(RefactoringBundle.message("superclass.cannot.be.extracted.from.an.interface"));
@@ -104,19 +106,23 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
 
 
     final List<MemberInfo> memberInfos = MemberInfo.extractClassMembers(mySubclass, new MemberInfo.Filter<PsiMember>() {
+      @Override
       public boolean includeMember(PsiMember element) {
         return true;
       }
     }, false);
 
     final ExtractSuperclassMultiDialog dialog =
-      new ExtractSuperclassMultiDialog(project, mySubclass, memberInfos, ExtractSuperclassMultiHandler.this, myUseGenericUnification);
-    dialog.show();
-    if (!dialog.isOK() || !dialog.isExtractSuperclass()) return;
+      new ExtractSuperclassMultiDialog(project, mySubclass, memberInfos, this, myUseGenericUnification);
+    if (!dialog.showAndGet() || !dialog.isExtractSuperclass()) {
+      return;
+    }
 
     CommandProcessor.getInstance().executeCommand(myProject, new Runnable() {
+      @Override
       public void run() {
         final Runnable action = new Runnable() {
+          @Override
           public void run() {
             doRefactoring(project, mySubclass, dialog);
           }
@@ -124,9 +130,9 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
         ApplicationManager.getApplication().runWriteAction(action);
       }
     }, REFACTORING_NAME, null);
-
   }
 
+  @Override
   public boolean checkConflicts(final ExtractSuperclassMultiDialog dialog) {
     final MemberInfo[] infos = ArrayUtil.toObjectArray(dialog.getSelectedMemberInfos(), MemberInfo.class);
     final PsiDirectory targetDirectory = dialog.getTargetDirectory();
@@ -139,9 +145,17 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
     }
     final MultiMap<PsiElement,String> conflicts = new MultiMap<PsiElement, String>();
     if (!ProgressManager.getInstance().runProcessWithProgressSynchronously(new Runnable() {
+      @Override
       public void run() {
-        final PsiClass superClass = mySubclass.getExtendsListTypes().length > 0 ? mySubclass.getSuperClass() : null;
-        conflicts.putAllValues(PullUpConflictsUtil.checkConflicts(infos, mySubclass, superClass, targetPackage, targetDirectory, dialog.getContainmentVerifier(), false));
+      ApplicationManager.getApplication().runReadAction(new Runnable() {
+          @Override
+          public void run() {
+            final PsiClass superClass =
+              mySubclass.getExtendsListTypes().length > 0 || mySubclass instanceof PsiAnonymousClass ? mySubclass.getSuperClass() : null;
+            conflicts.putAllValues(PullUpConflictsUtil.checkConflicts(infos, mySubclass, superClass, targetPackage, targetDirectory,
+                                                                      dialog.getContainmentVerifier(), false));
+          }
+        });
       }
     }, RefactoringBundle.message("detecting.possible.conflicts"), true, myProject)) return false;
     ExtractSuperClassMultiUtil.checkSuperAccessible(targetDirectory, conflicts, mySubclass);
@@ -157,7 +171,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
     final DocCommentPolicy javaDocPolicy = new DocCommentPolicy(dialog.getDocCommentPolicy());
     LocalHistoryAction a = LocalHistory.getInstance().startAction(getCommandName(subclass, superclassName));
     try {
-      PsiClass superclass = null;
+      final PsiClass superclass ;
 
       try {
         superclass =
@@ -172,11 +186,12 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
         final SmartPsiElementPointer<PsiClass> classPointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(subclass);
         final SmartPsiElementPointer<PsiClass> interfacePointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(superclass);
         final Runnable turnRefsToSuperRunnable = new Runnable() {
+          @Override
           public void run() {
             ExtractClassUtil.askAndTurnRefsToSuper(project, classPointer, interfacePointer);
           }
         };
-        SwingUtilities.invokeLater(turnRefsToSuperRunnable); // FIXME : this may be painful when chaining refactoring operations
+        SwingUtilities.invokeLater(turnRefsToSuperRunnable); // FIXME (J) : this may be painful when chaining refactoring operations
 
       }
     }
@@ -190,6 +205,7 @@ public class ExtractSuperclassMultiHandler implements RefactoringActionHandler, 
     return RefactoringBundle.message("extract.superclass.command.name", newName, UsageViewUtil.getLongName(subclass));
   }
 
+  @Override
   public boolean isEnabledOnElements(PsiElement[] elements) {
     return elements.length == 1 && elements[0] instanceof PsiClass && !((PsiClass) elements[0]).isInterface()
       &&!((PsiClass)elements[0]).isEnum();

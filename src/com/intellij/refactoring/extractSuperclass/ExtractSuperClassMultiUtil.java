@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2013 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 package com.intellij.refactoring.extractSuperclass;
 
-import com.intellij.codeInsight.generation.OverrideImplementUtil;
+import com.intellij.codeInsight.generation.OverrideImplementExploreUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtil;
@@ -36,29 +36,41 @@ import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.MethodSignature;
 import com.intellij.psi.util.PsiUtil;
-import com.intellij.psi.util.PsiUtilBase;
+import com.intellij.psi.util.PsiUtilCore;
 import com.intellij.psi.util.TypeConversionUtil;
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
-import com.intellij.refactoring.memberPullUp.PullUpGenProcessor;
+import com.intellij.refactoring.genUtils.SisterClassesUtil;
+import com.intellij.refactoring.listeners.RefactoringEventData;
+import com.intellij.refactoring.listeners.RefactoringEventListener;
+import com.intellij.refactoring.memberPullUp.PullUpGenProcessor; // (J)
+import com.intellij.refactoring.genUtils.GenAnalysisUtils;       // (J)
 import com.intellij.refactoring.ui.ConflictsDialog;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringUtil;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
+import com.intellij.util.Function;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.containers.HashMap;
 import com.intellij.util.containers.MultiMap;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.Arrays; // J
+import java.util.Vector; // J
 
-
+/**
+ *
+ */
 public class ExtractSuperClassMultiUtil {
   private static final Logger LOG = Logger.getInstance("com.intellij.refactoring.extractSuperclassMulti.ExtractSuperClassMultiUtil");
+  public static final String REFACTORING_EXTRACT_SUPER_ID = "refactoring.extractSuper";
+
   private ExtractSuperClassMultiUtil() {}
 
 
-  // Modified (Julien)
   public static PsiClass extractSuperClassMulti(final Project project,
                                                 final PsiDirectory targetDirectory,
                                                 final String superclassName,
@@ -66,59 +78,52 @@ public class ExtractSuperClassMultiUtil {
                                                 final MemberInfo[] selectedMemberInfos,
                                                 final DocCommentPolicy javaDocPolicy,
                                                 final boolean useGenericUnification)
-    throws IncorrectOperationException {    
-      final Collection<PsiClass> sisterClasses = GenAnalysisUtils.findSisterClassesInDirectory(subclass);  // rem : in extract super-class, we are only interested in classes at the same level. For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C (unlike in pull-up abstract).
-      final String packageName = ((PsiJavaFile)subclass.getContainingFile()).getPackageName();
+    throws IncorrectOperationException {
+
+    // Modified (Julien)
+
+    project.getMessageBus().syncPublisher(RefactoringEventListener.REFACTORING_EVENT_TOPIC)
+      .refactoringStarted(REFACTORING_EXTRACT_SUPER_ID, createBeforeData(subclass, selectedMemberInfos));
+
+    PsiClass myfreshsuperclass = JavaDirectoryService.getInstance().createClass(targetDirectory, superclassName);
+
+    try {
+
+      final Collection<PsiClass> sisterClasses = SisterClassesUtil.findSisterClassesInDirectory(subclass);
+      // Rem : In extract super-class, we are only interested in classes at the same level.
+      // For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C
+      // (unlike in pull-up abstract).
+      System.out.println(sisterClasses);
+      final String packageName = ((PsiJavaFile) subclass.getContainingFile()).getPackageName();
 
       final Collection<PsiClass> selectedSisterClasses = filterSisterClasses(Arrays.asList(selectedMemberInfos), useGenericUnification, sisterClasses);
 
       if (selectedSisterClasses.isEmpty()) {
-          throw new IncorrectOperationException ("Internal error: no convenient class found (in extractSuperClassMulti).");
+        throw new IncorrectOperationException("Internal error: no convenient class found (in extractSuperClassMulti).");
       }
 
-      return extractSuperClass(project, targetDirectory, superclassName, selectedSisterClasses, selectedMemberInfos, javaDocPolicy, useGenericUnification);
+      return extractSuperClassMulti(selectedSisterClasses, selectedMemberInfos, javaDocPolicy, useGenericUnification, myfreshsuperclass);
+    }
+    finally {
+      project.getMessageBus().syncPublisher(RefactoringEventListener.REFACTORING_EVENT_TOPIC).refactoringDone(REFACTORING_EXTRACT_SUPER_ID, createAfterData(myfreshsuperclass));
+    }
   }
 
-  // Filter sister classes which have the selected members
-  public static Collection<PsiClass> filterSisterClasses(Iterable<MemberInfo> selectedMemberInfos, boolean useGenericUnification, Collection<PsiClass> sisterClasses) {
-        Collection<PsiClass> selectedClasses = new Vector();
-
-        if (!useGenericUnification){
-          for (PsiClass c : sisterClasses){
-           if (GenAnalysisUtils.hasMembers(c, selectedMemberInfos)) selectedClasses.add(c);
-           }
-        }
-
-        else {
-          for (PsiClass c : sisterClasses){
-              try {
-                  if (GenAnalysisUtils.hasCompatibleMembers(c, selectedMemberInfos))
-                       selectedClasses.add(c);
-              } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
-                  throw new IncorrectOperationException(ambiguousOverloading.toString()) ;
-              }
-          }
-        }
-
-        return selectedClasses;
-  }
 
 
   // Modified (Julien)
-  public static PsiClass extractSuperClass(final Project project,
-                                           final PsiDirectory targetDirectory,
-                                           final String superclassName,
-                                           final Collection <PsiClass> subclasses,
-                                           final MemberInfo[] selectedMemberInfos,
-                                           final DocCommentPolicy javaDocPolicy,
-                                           final boolean useGenericUnification) throws IncorrectOperationException {
+  public static PsiClass extractSuperClassMulti(final Collection<PsiClass> subclasses,
+                                                final MemberInfo[] selectedMemberInfos,
+                                                final DocCommentPolicy javaDocPolicy,
+                                                final boolean useGenericUnification,
+                                                PsiClass thefreshsuperclass)
+    throws IncorrectOperationException {
 
     assert (!subclasses.isEmpty());
     PsiClass aSubClass = subclasses.iterator().next();
 
-    // 1 : Create an empty class
-    PsiClass myfreshsuperclass = JavaDirectoryService.getInstance().createClass(targetDirectory, superclassName);
-    final PsiModifierList superClassModifierList = myfreshsuperclass.getModifierList();
+    // 1 : Configure the new superclass class
+    final PsiModifierList superClassModifierList = thefreshsuperclass.getModifierList();
     assert superClassModifierList != null;
     superClassModifierList.setModifierProperty(PsiModifier.FINAL, false);
     superClassModifierList.setModifierProperty(PsiModifier.ABSTRACT, true);
@@ -128,7 +133,7 @@ public class ExtractSuperClassMultiUtil {
 
     final PsiReferenceList subClassExtends = aSubClass.getExtendsList(); // TODO : check that other classes do not need to be considered as well
     assert subClassExtends != null: subclasses;
-    copyPsiReferenceList(subClassExtends, myfreshsuperclass.getExtendsList());
+    copyPsiReferenceList(subClassExtends, thefreshsuperclass.getExtendsList());
 
 
     // 3 : create constructors if neccesary
@@ -141,7 +146,7 @@ public class ExtractSuperClassMultiUtil {
     // 4 : create new 'extends' links
     for (PsiClass c: subclasses) {
       clearPsiReferenceList(c.getExtendsList());
-      PsiJavaCodeReferenceElement ref = createExtendingReference(myfreshsuperclass, c, selectedMemberInfos);
+      PsiJavaCodeReferenceElement ref = createExtendingReference(thefreshsuperclass, c, selectedMemberInfos);
       c.getExtendsList().add(ref);
     }
 
@@ -157,7 +162,7 @@ public class ExtractSuperClassMultiUtil {
       pullUpHelper.moveFieldInitializations();
     }
     else {  */
-      PullUpGenProcessor pullUpHelper = new PullUpGenProcessor(aSubClass, subclasses, myfreshsuperclass, selectedMemberInfos, javaDocPolicy);
+      PullUpGenProcessor pullUpHelper = new PullUpGenProcessor(aSubClass, subclasses, thefreshsuperclass, selectedMemberInfos, javaDocPolicy);
         try {
             pullUpHelper.moveMembersToBase();                // TODO : make that efficient (unifiers are searched twice: one time for computing the sister classes, and one time for the pull-up)
         } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
@@ -171,13 +176,13 @@ public class ExtractSuperClassMultiUtil {
 
 
     // 6 : make the superclass abstract if needed
-    Collection<MethodSignature> toImplement = OverrideImplementUtil.getMethodSignaturesToImplement(myfreshsuperclass);
+    Collection<MethodSignature> toImplement = OverrideImplementExploreUtil.getMethodSignaturesToImplement(thefreshsuperclass);
     if (!toImplement.isEmpty()) {
       superClassModifierList.setModifierProperty(PsiModifier.ABSTRACT, true);
     }
 
     // finished
-    return myfreshsuperclass;
+    return thefreshsuperclass;
   }
 
 
@@ -261,20 +266,13 @@ public class ExtractSuperClassMultiUtil {
     for (final MemberInfo info : selectedMembers) {
       movedElements.add(info.getMember());
     }
-    final PsiTypeParameterList typeParameterList = RefactoringUtil.createTypeParameterListWithUsedTypeParameters(null,
-                                                                                                                 new Condition<PsiTypeParameter>() {
-                                                                                                                   @Override
-                                                                                                                   public boolean value(
-                                                                                                                     PsiTypeParameter parameter) {
-                                                                                                                     return
-                                                                                                                       findTypeParameterInDerived(
-                                                                                                                         derivedClass,
-                                                                                                                         parameter
-                                                                                                                           .getName()) !=
-                                                                                                                       null;
-                                                                                                                   }
-                                                                                                                 }, PsiUtilBase
-      .toPsiElementArray(movedElements));
+    final Condition<PsiTypeParameter> filter = new Condition<PsiTypeParameter>() {
+      @Override
+      public boolean value(PsiTypeParameter parameter) {
+        return findTypeParameterInDerived(derivedClass, parameter.getName()) == parameter;
+      }
+    };
+    final PsiTypeParameterList typeParameterList = RefactoringUtil.createTypeParameterListWithUsedTypeParameters(null, filter, PsiUtilCore.toPsiElementArray(movedElements));
     final PsiTypeParameterList originalTypeParameterList = superClass.getTypeParameterList();
     assert originalTypeParameterList != null;
     final PsiTypeParameterList newList = typeParameterList != null ? (PsiTypeParameterList)originalTypeParameterList.replace(typeParameterList) : originalTypeParameterList;
@@ -315,6 +313,7 @@ public class ExtractSuperClassMultiUtil {
 
   public static boolean showConflicts(DialogWrapper dialog, MultiMap<PsiElement, String> conflicts, final Project project) {
     if (!conflicts.isEmpty()) {
+      fireConflictsEvent(conflicts, project);
       ConflictsDialog conflictsDialog = new ConflictsDialog(project, conflicts);
       conflictsDialog.show();
       final boolean ok = conflictsDialog.isOK();
@@ -323,4 +322,55 @@ public class ExtractSuperClassMultiUtil {
     }
     return true;
   }
+
+  private static void fireConflictsEvent(MultiMap<PsiElement, String> conflicts, Project project) {
+    final RefactoringEventData conflictUsages = new RefactoringEventData();
+    conflictUsages.putUserData(RefactoringEventData.CONFLICTS_KEY, conflicts.values());
+    project.getMessageBus()
+      .syncPublisher(RefactoringEventListener.REFACTORING_EVENT_TOPIC)
+      .conflictsDetected(REFACTORING_EXTRACT_SUPER_ID, conflictUsages);
+  }
+
+  public static RefactoringEventData createBeforeData(final PsiClass subclassClass, final MemberInfo[] members) {
+    RefactoringEventData data = new RefactoringEventData();
+    data.addElement(subclassClass);
+    data.addMembers(members, new Function<MemberInfo, PsiElement>() {
+      @Override
+      public PsiElement fun(MemberInfo info) {
+        return info.getMember();
+      }
+    });
+    return data;
+  }
+
+  public static RefactoringEventData createAfterData(final PsiClass subClass) {
+    RefactoringEventData data = new RefactoringEventData();
+    data.addElement(subClass);
+    return data;
+  }
+
+  // Filter sister classes which have the selected members
+  public static Collection<PsiClass> filterSisterClasses(Iterable<MemberInfo> selectedMemberInfos, boolean useGenericUnification, Collection<PsiClass> sisterClasses) {
+    Collection<PsiClass> selectedClasses = new Vector();
+
+    if (!useGenericUnification){
+      for (PsiClass c : sisterClasses){
+        if (GenAnalysisUtils.hasMembers(c, selectedMemberInfos)) selectedClasses.add(c);
+      }
+    }
+
+    else {
+      for (PsiClass c : sisterClasses){
+        try {
+          if (GenAnalysisUtils.hasCompatibleMembers(c, selectedMemberInfos))
+            selectedClasses.add(c);
+        } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
+          throw new IncorrectOperationException(ambiguousOverloading.toString()) ;
+        }
+      }
+    }
+
+    return selectedClasses;
+  }
+
 }

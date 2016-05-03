@@ -46,6 +46,7 @@ import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
 import com.intellij.refactoring.classMembers.MemberInfoChange;
+import com.intellij.refactoring.genUtils.SisterClassesUtil;
 import com.intellij.refactoring.ui.ClassCellRenderer;
 import com.intellij.refactoring.ui.DocCommentPanel;
 import com.intellij.refactoring.util.DocCommentPolicy;
@@ -68,7 +69,7 @@ import com.intellij.ui.components.JBList;
 import com.intellij.usageView.UsageViewUtil;
 
 import java.util.Collection;
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
+
 import com.intellij.refactoring.ui.CustomMemberSelectionPanel;
 import com.intellij.refactoring.ui.CustomMemberSelectionTable;
 import com.intellij.refactoring.ui.ShortClassCellRenderer;
@@ -228,7 +229,7 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
     }
 
     private void setSisterClassDisplay() {
-        Collection<PsiClass> mySisterClasses = GenAnalysisUtils.findDirectSubClassesInDirectory(getSuperClass()); // getSuperClass can be invoked only after myClassCombo has been initialized.
+        Collection<PsiClass> mySisterClasses = SisterClassesUtil.findDirectSubClassesInDirectory(getSuperClass()); // getSuperClass can be invoked only after myClassCombo has been initialized.
         mySisterClassList.setListData(mySisterClasses.toArray());
     }
 

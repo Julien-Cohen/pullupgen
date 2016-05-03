@@ -30,7 +30,7 @@ import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoChange;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
+import com.intellij.refactoring.genUtils.SisterClassesUtil;
 import com.intellij.refactoring.memberPullUp.PullUpProcessor;
 import com.intellij.refactoring.ui.MemberSelectionPanel;
 import com.intellij.refactoring.ui.ShortClassCellRenderer;
@@ -101,7 +101,8 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
                                                                                myMemberInfos, RefactoringBundle.message("make.abstract"));
     panel.add(memberSelectionPanel, BorderLayout.CENTER);
     final MemberInfoModel<PsiMember, MemberInfo> memberInfoModel =
-      new UsesAndInterfacesDependencyMemberInfoModel(mySourceClass, null, false, myContainmentVerifier) {
+      new UsesAndInterfacesDependencyMemberInfoModel<PsiMember, MemberInfo>(mySourceClass, null, false, myContainmentVerifier) {
+        @Override
         public Boolean isFixedAbstract(MemberInfo member) {
           return Boolean.TRUE;
         }
@@ -145,7 +146,7 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
 
   // Julien
   protected Collection<PsiClass> getSisterClasses() {
-        return GenAnalysisUtils.findSisterClassesInDirectory(mySourceClass);
+        return SisterClassesUtil.findSisterClassesInDirectory(mySourceClass);
   }
 
 
