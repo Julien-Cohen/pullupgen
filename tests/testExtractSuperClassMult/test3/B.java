@@ -7,7 +7,7 @@ package testExtractSuperClassMult.test3;
  * Time: 14:41
  * To change this template use File | Settings | File Templates.
  */
-public class B extends S {
+public class B implements I {
     int a ;
     public void i(){return ;}
 }
