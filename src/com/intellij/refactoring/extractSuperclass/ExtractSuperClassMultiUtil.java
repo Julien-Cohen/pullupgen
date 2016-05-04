@@ -85,19 +85,20 @@ public class ExtractSuperClassMultiUtil {
     project.getMessageBus().syncPublisher(RefactoringEventListener.REFACTORING_EVENT_TOPIC)
       .refactoringStarted(REFACTORING_EXTRACT_SUPER_ID, createBeforeData(subclass, selectedMemberInfos));
 
+    final Collection<PsiClass> sisterClasses = SisterClassesUtil.findSisterClassesInDirectory(subclass);
+    // Rem : In extract super-class, we are only interested in classes at the same level.
+    // For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C
+    // (unlike in pull-up abstract).
+
+    // final String packageName = ((PsiJavaFile) subclass.getContainingFile()).getPackageName();
+
+    final Collection<PsiClass> selectedSisterClasses = filterSisterClasses(Arrays.asList(selectedMemberInfos), useGenericUnification, sisterClasses);
+
     PsiClass myfreshsuperclass = JavaDirectoryService.getInstance().createClass(targetDirectory, superclassName);
+    // We must create this class after computing the sister class
+    // or the new class will appear in the list of sister classes.
 
     try {
-
-      final Collection<PsiClass> sisterClasses = SisterClassesUtil.findSisterClassesInDirectory(subclass);
-      // Rem : In extract super-class, we are only interested in classes at the same level.
-      // For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C
-      // (unlike in pull-up abstract).
-
-      // final String packageName = ((PsiJavaFile) subclass.getContainingFile()).getPackageName();
-
-      final Collection<PsiClass> selectedSisterClasses = filterSisterClasses(Arrays.asList(selectedMemberInfos), useGenericUnification, sisterClasses);
-
       if (selectedSisterClasses.isEmpty()) {
         throw new IncorrectOperationException("Internal error: no convenient class found (in extractSuperClassMulti).");
       }
@@ -118,7 +119,7 @@ public class ExtractSuperClassMultiUtil {
                                                 final boolean useGenericUnification,
                                                 PsiClass thefreshsuperclass)
     throws IncorrectOperationException {
-
+    System.out.println(subclasses);
     assert (!subclasses.isEmpty());
     PsiClass aSubClass = subclasses.iterator().next();
 
@@ -162,15 +163,22 @@ public class ExtractSuperClassMultiUtil {
       pullUpHelper.moveFieldInitializations();
     }
     else {  */
-      PullUpGenProcessor pullUpHelper = new PullUpGenProcessor(aSubClass, subclasses, thefreshsuperclass, selectedMemberInfos, javaDocPolicy);
-        try {
-            pullUpHelper.moveMembersToBase();                // TODO : make that efficient (unifiers are searched twice: one time for computing the sister classes, and one time for the pull-up)
-        } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
-            throw new IncorrectOperationException(ambiguousOverloading.toString()) ;
-        } catch (GenAnalysisUtils.MemberNotImplemented notImplemented) {
-            throw new IncorrectOperationException(notImplemented.toString()) ;
-        }
-        pullUpHelper.moveFieldInitializations();
+    if (selectedMemberInfos.length != 0) {
+      PullUpGenProcessor pullUpHelper =
+              new PullUpGenProcessor(aSubClass, subclasses, thefreshsuperclass, selectedMemberInfos, javaDocPolicy);
+
+      try {
+        pullUpHelper.moveMembersToBase();
+        // TODO : make that efficient
+        // (unifiers are searched twice: one time for computing the sister classes, and one time for the pull-up)
+      } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
+        throw new IncorrectOperationException(ambiguousOverloading.toString());
+      } catch (GenAnalysisUtils.MemberNotImplemented notImplemented) {
+        throw new IncorrectOperationException(notImplemented.toString());
+      }
+
+      pullUpHelper.moveFieldInitializations();
+    }
 
    /* } */
 
