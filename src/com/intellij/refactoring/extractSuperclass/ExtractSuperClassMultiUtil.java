@@ -119,7 +119,6 @@ public class ExtractSuperClassMultiUtil {
                                                 final boolean useGenericUnification,
                                                 PsiClass thefreshsuperclass)
     throws IncorrectOperationException {
-    System.out.println(subclasses);
     assert (!subclasses.isEmpty());
     PsiClass aSubClass = subclasses.iterator().next();
 
