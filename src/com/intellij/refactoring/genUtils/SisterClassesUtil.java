@@ -16,7 +16,6 @@ import java.util.Collection;
 public class SisterClassesUtil {
 
     /* ------ Lookup for sub-classes / sister-classes  ------ */
-    /* We make the assumption that the superclass and the sisterclass are all in the same directory */
 
 
     public static Collection<PsiClass> findDirectSubClassesInDirectory(@NotNull PsiClass superClass) {

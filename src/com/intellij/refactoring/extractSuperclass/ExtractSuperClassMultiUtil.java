@@ -93,8 +93,8 @@ public class ExtractSuperClassMultiUtil {
       // Rem : In extract super-class, we are only interested in classes at the same level.
       // For instance, if we have A->Object, B->Object, C->B->Object, we are not interested in C
       // (unlike in pull-up abstract).
-      System.out.println(sisterClasses);
-      final String packageName = ((PsiJavaFile) subclass.getContainingFile()).getPackageName();
+
+      // final String packageName = ((PsiJavaFile) subclass.getContainingFile()).getPackageName();
 
       final Collection<PsiClass> selectedSisterClasses = filterSisterClasses(Arrays.asList(selectedMemberInfos), useGenericUnification, sisterClasses);
 
