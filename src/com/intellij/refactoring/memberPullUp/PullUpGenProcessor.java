@@ -53,6 +53,8 @@ import com.intellij.psi.util.TypeConversionUtil;
 import com.intellij.refactoring.BaseRefactoringProcessor;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.MemberInfoBase;
+import com.intellij.refactoring.genUtils.AmbiguousOverloading;
+import com.intellij.refactoring.genUtils.MemberNotImplemented;
 import com.intellij.refactoring.listeners.JavaRefactoringListenerManager;
 import com.intellij.refactoring.listeners.RefactoringEventData;
 import com.intellij.refactoring.listeners.impl.JavaRefactoringListenerManagerImpl;
@@ -71,7 +73,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
 import com.intellij.refactoring.genUtils.GenBuildUtils;
 
 
@@ -172,8 +173,8 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
     }, ModalityState.NON_MODAL, myProject.getDisposed());
 
    }
-   catch (GenAnalysisUtils.MemberNotImplemented e) {throw new IncorrectOperationException(e.toString()) ;} // (J)
-   catch (GenAnalysisUtils.AmbiguousOverloading e) {throw new IncorrectOperationException(e.toString()) ;} // (J)
+   catch (MemberNotImplemented e) {throw new IncorrectOperationException(e.toString()) ;} // (J)
+   catch (AmbiguousOverloading e) {throw new IncorrectOperationException(e.toString()) ;} // (J)
   }
 
   private void processMethodsDuplicates() {
@@ -214,7 +215,7 @@ public class PullUpGenProcessor extends BaseRefactoringProcessor implements Pull
     return RefactoringBundle.message("pullUp.command", DescriptiveNameUtil.getDescriptiveName(mySourceClass));
   }
 
-  public void moveMembersToBase() throws IncorrectOperationException, GenAnalysisUtils.AmbiguousOverloading, GenAnalysisUtils.MemberNotImplemented {
+  public void moveMembersToBase() throws IncorrectOperationException, AmbiguousOverloading, MemberNotImplemented {
     myMovedMembers = ContainerUtil.newHashSet();
     myMembersAfterMove = ContainerUtil.newHashSet();
 

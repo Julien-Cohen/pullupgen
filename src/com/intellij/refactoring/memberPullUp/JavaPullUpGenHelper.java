@@ -49,6 +49,7 @@ import com.intellij.psi.util.InheritanceUtil;
 import com.intellij.psi.util.MethodSignatureUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.util.PsiUtil;
+import com.intellij.refactoring.genUtils.*;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringChangeUtil;
 import com.intellij.refactoring.util.RefactoringHierarchyUtil;
@@ -61,11 +62,6 @@ import com.intellij.util.containers.HashMap;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-
-import com.intellij.refactoring.genUtils.DependentSubstitution;
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
-import com.intellij.refactoring.genUtils.GenBuildUtils;
-import com.intellij.refactoring.genUtils.GenSubstitutionUtils;
 
 
 /**
@@ -190,7 +186,7 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
 
   private void doMoveClass(PsiSubstitutor substitutor, MemberInfo info) {
     // (rem Julien) case where the member to pull-up is a class/interface, internal or declared as superclass/interface
-    if (GenAnalysisUtils.memberClassComesFromImplements(info)){
+    if (Comparison.memberClassComesFromImplements(info)){
       throw new IncorrectOperationException("pull-up classes not supported.");
     }
     else {
@@ -251,18 +247,21 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
       ChangeContextUtil.clearContextInfo(method);
 
       // begin Julien
+
       // 1) collect the sister methods (methods with the same type skeleton in sister classes).
-      final List<PsiMethod> sisterMethods = GenAnalysisUtils.findCompatibleMethods(method, sisterClasses);    // TODO : make that efficient (classes are traversed twice)
+      final List<PsiMethod> sisterMethods =
+              // TODO : make that efficient (classes are traversed twice)
+              GenAnalysisUtils.findCompatibleMethods(method, sisterClasses);
 
 
 
       // 2)find which types have to be parameterized
 
-      final DependentSubstitution initialParameters = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory); // used later to know the type parameters of the initial clases TODO: improve that
-      DependentSubstitution       theMegaSubst      = GenSubstitutionUtils.computeCurrentSub(this.myTargetSuperClass, sisterClasses, elementFactory);   // TODO: clone initialParameters above?
+      final DependentSubstitution initialParameters = GenSubstitutionUtils.computePreviousSub(this.myTargetSuperClass, sisterClasses); // used later to know the type parameters of the initial clases TODO: improve that
+      final DependentSubstitution theMegaSubst      = GenSubstitutionUtils.computePreviousSub(this.myTargetSuperClass, sisterClasses);   // TODO: clone initialParameters above?
 
 
-      final GenSubstitutionUtils.ParamSubstitution sub = GenSubstitutionUtils.antiunify(sisterMethods, theMegaSubst, method.getName(), elementFactory, boundNames); // TODO : fix that (empty substitution)
+      final ParamSubstitution sub = GenSubstitutionUtils.antiunify(sisterMethods, theMegaSubst, method.getName(), elementFactory, boundNames); // TODO : fix that (empty substitution)
 
 
       // 3) build the abstract method
@@ -280,7 +279,7 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
 
 
       // 7) Add type parameters to the superclass
-      DependentSubstitution newParameters = GenSubstitutionUtils.difference(theMegaSubst, initialParameters);
+      DependentSubstitution newParameters = DependentSubstitution.difference(theMegaSubst, initialParameters);
       for (PsiTypeParameter t: newParameters.keySet()){
         myTargetSuperClass.getTypeParameterList().add(t);
       }
@@ -376,19 +375,19 @@ public class JavaPullUpGenHelper implements PullUpGenHelper<MemberInfo> {
 
   @Deprecated
   void initSisterClasses(MemberInfo[] membersToMove)
-            throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
+            throws MemberNotImplemented, AmbiguousOverloading {
     sisterClasses = computeSisterClasses(membersToMove);
   }
 
   public Collection<PsiClass> getSisterClasses(MemberInfo[] membersToMove)
-            throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
+            throws MemberNotImplemented, AmbiguousOverloading {
     if (sisterClasses == null) initSisterClasses(membersToMove);
     return sisterClasses;
   }
 
   @Deprecated
   Collection<PsiClass> computeSisterClasses(MemberInfo[] membersToMove)
-            throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading {
+            throws MemberNotImplemented, AmbiguousOverloading {
         if (membersToMove.length == 0) return new HashSet(); // Empty
 
         Collection <PsiClass> baseSet = GenAnalysisUtils.findSubClassesWithCompatibleMember(membersToMove[0], this.myTargetSuperClass);

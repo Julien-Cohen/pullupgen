@@ -15,14 +15,13 @@
  */
 package com.intellij.refactoring.memberPullUp;
 
-import com.intellij.lang.LanguageExtension;
 import com.intellij.psi.*;
 import com.intellij.refactoring.classMembers.MemberInfoBase;
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;
+import com.intellij.refactoring.genUtils.AmbiguousOverloading;
+import com.intellij.refactoring.genUtils.MemberNotImplemented;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 
 import java.util.Collection;
-import java.util.LinkedHashSet;
 
 /**
  * Up-to-date w.r.t. commit on 24 Oct 2013. *)
@@ -30,6 +29,6 @@ import java.util.LinkedHashSet;
 public interface PullUpGenHelper<T extends MemberInfoBase<? extends PsiMember>> extends PullUpHelper<T> {
 
 
-  Collection<PsiClass> getSisterClasses(MemberInfo[] infos) throws GenAnalysisUtils.MemberNotImplemented, GenAnalysisUtils.AmbiguousOverloading;
+  Collection<PsiClass> getSisterClasses(MemberInfo[] infos) throws MemberNotImplemented, AmbiguousOverloading;
 
 }

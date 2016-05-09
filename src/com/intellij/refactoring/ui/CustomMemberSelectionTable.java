@@ -27,6 +27,7 @@ package com.intellij.refactoring.ui;
 
 import com.intellij.psi.*;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
+import com.intellij.refactoring.genUtils.Comparison;
 import com.intellij.refactoring.genUtils.GenAnalysisUtils;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.ui.ColoredTableCellRenderer;
@@ -134,7 +135,7 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
         else if (m instanceof PsiField) { return false ; } // fIXME
 
         // *) Implements interface
-        else  if (m instanceof PsiClass && GenAnalysisUtils.memberClassComesFromImplements(mem)) {
+        else  if (m instanceof PsiClass && Comparison.memberClassComesFromImplements(mem)) {
 
             final PsiClassType[] referencedTypes = mem.getSourceReferenceList().getReferencedTypes();
             assert(referencedTypes.length == 1) ;

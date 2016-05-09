@@ -29,7 +29,7 @@ import java.util.Map;
 public class GenBuildUtils {
 
 
-    public static void generifyAbstractMethod(PsiMethod m, GenSubstitutionUtils.ParamSubstitution lp){
+    public static void generifyAbstractMethod(PsiMethod m, ParamSubstitution lp){
         final PsiElementFactory factory = JavaPsiFacade.getElementFactory(m.getProject());
         
         for (Integer pos : lp.keySet()){
@@ -58,27 +58,43 @@ public class GenBuildUtils {
 
     public static void updateExtendsStatementsInSisterClasses(
             DependentSubstitution megasub,
-                        PsiClass superClass,
+            PsiClass superClass,
             PsiElementFactory factory) {
 
 
-      for (PsiTypeParameter t: megasub.keySet()){
-        final Map<PsiClass,PsiType> m = megasub.get(t);
+      for (PsiTypeParameter theTypeParameter: megasub.keySet()){
+        final Map<PsiClass,PsiType> m = megasub.get(theTypeParameter);
         for (PsiClass c : m.keySet()){
           final PsiJavaCodeReferenceElement extendsRef = findReferenceToSuperclass(c, superClass);
-          addTypeParameterToReference(extendsRef, megasub.get(t,c), factory);
+            PsiType theConcreteType = megasub.get(theTypeParameter, c);
+            System.out.println("Adding " + theConcreteType + " to extension " + extendsRef + " (to instantiate " + theTypeParameter +" )"); // Debug
+            addTypeParameterToReference(extendsRef, theConcreteType, factory);
+            System.out.println("Result : " + extendsRef); // Debug
           }
       }
     }
 
-    /** Replace "class A extends S" by "class A extends S < Object >" when S has a type parameter */
+    /** Replace "class A extends S" by "class A extends S < Object >" when S has a type parameter.
+     *
+     * @param superclass
+     * @param toBeAligned
+     * @param factory
+     *
+     * Modifies toBeAligned.
+     * If the extends is already aligned with the superclass, does nothing.
+     *
+     */
     public static void alignParameters(PsiClass superclass, PsiClass toBeAligned, PsiElementFactory factory){
-        final int l_super      = superclass.getTypeParameters().length;
-        final int l_class      = toBeAligned.getTypeParameters().length;
-        final PsiType ob = factory.createTypeFromText("Object", null);
         final PsiJavaCodeReferenceElement extendsRef = findReferenceToSuperclass(toBeAligned, superclass);
 
-        for (int i=0; i< l_super - l_class; i++ )  addTypeParameterToReference(extendsRef, ob, factory);
+        final int len = extendsRef.getParameterList().getTypeParameterElements().length;
+
+        final int len_super      = superclass.getTypeParameters().length;
+        final PsiType ob = factory.createTypeFromText("Object", null);
+
+        for (int i=0; i< len_super - len; i++ ) {
+            addTypeParameterToReference(extendsRef, ob, factory);
+        }
 
     }
 

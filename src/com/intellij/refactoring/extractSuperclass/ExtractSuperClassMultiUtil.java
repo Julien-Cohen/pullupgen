@@ -38,11 +38,10 @@ import com.intellij.psi.util.MethodSignature;
 import com.intellij.psi.util.PsiUtil;
 import com.intellij.psi.util.PsiUtilCore;
 import com.intellij.psi.util.TypeConversionUtil;
-import com.intellij.refactoring.genUtils.SisterClassesUtil;
+import com.intellij.refactoring.genUtils.*;
 import com.intellij.refactoring.listeners.RefactoringEventData;
 import com.intellij.refactoring.listeners.RefactoringEventListener;
 import com.intellij.refactoring.memberPullUp.PullUpGenProcessor; // (J)
-import com.intellij.refactoring.genUtils.GenAnalysisUtils;       // (J)
 import com.intellij.refactoring.ui.ConflictsDialog;
 import com.intellij.refactoring.util.DocCommentPolicy;
 import com.intellij.refactoring.util.RefactoringUtil;
@@ -170,9 +169,9 @@ public class ExtractSuperClassMultiUtil {
         pullUpHelper.moveMembersToBase();
         // TODO : make that efficient
         // (unifiers are searched twice: one time for computing the sister classes, and one time for the pull-up)
-      } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
+      } catch (AmbiguousOverloading ambiguousOverloading) {
         throw new IncorrectOperationException(ambiguousOverloading.toString());
-      } catch (GenAnalysisUtils.MemberNotImplemented notImplemented) {
+      } catch (MemberNotImplemented notImplemented) {
         throw new IncorrectOperationException(notImplemented.toString());
       }
 
@@ -362,7 +361,7 @@ public class ExtractSuperClassMultiUtil {
 
     if (!useGenericUnification){
       for (PsiClass c : sisterClasses){
-        if (GenAnalysisUtils.hasMembers(c, selectedMemberInfos)) selectedClasses.add(c);
+        if (Comparison.hasMembers(c, selectedMemberInfos)) selectedClasses.add(c);
       }
     }
 
@@ -371,7 +370,7 @@ public class ExtractSuperClassMultiUtil {
         try {
           if (GenAnalysisUtils.hasCompatibleMembers(c, selectedMemberInfos))
             selectedClasses.add(c);
-        } catch (GenAnalysisUtils.AmbiguousOverloading ambiguousOverloading) {
+        } catch (AmbiguousOverloading ambiguousOverloading) {
           throw new IncorrectOperationException(ambiguousOverloading.toString()) ;
         }
       }
