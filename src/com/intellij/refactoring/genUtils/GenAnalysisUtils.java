@@ -33,7 +33,7 @@ public class GenAnalysisUtils {
 
     /** DEFINITIONS :
      *
-     * Two methods are compatible when they have the same name and their types (return type + parameter types) are anti-unifiable.
+     *
      * The sister classes of a class are the direct subclasses of its direct superclass.
      */
 
@@ -176,80 +176,99 @@ public class GenAnalysisUtils {
 
 
 
-    /* see def for compatibility at beginiing of this file : same name + anti-unifiable */
-    public static boolean hasCompatibleMembers(PsiClass c, Iterable<MemberInfo> infos) throws AmbiguousOverloading {
-        boolean ambiguity = false ;
-        PsiClass ambiguityclass = null ;
-        PsiMember ambiguitymember = null ;
-        for (MemberInfo member: infos){
-            PsiMember x = member.getMember();
 
-            if (x instanceof PsiMethod){
-              PsiMethod xx = (PsiMethod) x ;
-              final int count = hasCompatibleMethod(xx, c, false);
-              if (count >1) {ambiguity = true ; ambiguityclass = c ; ambiguitymember = xx;}
-              else if (count == 0) return false;
-            }
-            else if (x instanceof PsiField){
-             PsiField xx = (PsiField) x;
-             boolean found = false ;
-              for (PsiField m : c.getFields()) {
-                    if (Comparison.sameFields(xx, m)) found=true;
+    public static boolean hasCompatibleMembers(PsiClass c, Iterable<MemberInfo> membersToPullUp)
+            throws AmbiguousOverloading {
+
+        for (MemberInfo member: membersToPullUp){
+            final PsiMember theMember = member.getMember();
+
+            if (theMember instanceof PsiMethod){
+              PsiMethod theMethod = (PsiMethod) theMember ;
+              final int count = hasCompatibleMethod(theMethod, c);
+              if (count >1) {
+                  throw new AmbiguousOverloading(theMethod, c);
               }
-              if (!found) return false;
+              else
+              if (count == 0)
+                  return false;
             }
-            else if (x instanceof PsiClass) {throw new IncorrectOperationException("(hascompatiblemembers) don't know what to do with that class : " + x);}
-            else throw new IncorrectOperationException("this kind of member not handled yet : " + x);  // FIXME
+
+            else
+            if (theMember instanceof PsiField){
+              PsiField theField = (PsiField) theMember;
+              if  (!Comparison.hasField(theField, c))
+                  return false ;
+            }
+
+            else
+            if (theMember instanceof PsiClass) {
+                throw new IncorrectOperationException("(hasCompatibleMembers) don't know what to do with that class : " + theMember);
+            }
+
+            else throw new IncorrectOperationException("This kind of member not handled yet : " + theMember);  // FIXME
 
 
         }
-        if (ambiguity) throw new AmbiguousOverloading(ambiguitymember, ambiguityclass);
+
         return true;
     }
 
+
+
+
+
+
     public static List<PsiMethod> findCompatibleMethodsInClass(PsiMethod m, PsiClass c){
         final List <PsiMethod> result = new LinkedList<PsiMethod>();
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)){
-            if (AntiUnification.antiUnifiable(m, m_tmp)) result.add(m_tmp);
+        for (PsiMethod m_tmp: c.getMethods()){
+            if (Compatibility.isCompatible(m, m_tmp))
+                result.add(m_tmp);
         }
         return result;
+    }
+
+    public static List<PsiMethod> findCompatiblePublicMethodsInClass(PsiMethod m, PsiClass c){
+        final List <PsiMethod> result = new LinkedList<PsiMethod>();
+        for (PsiMethod m_tmp: c.getMethods()){
+            if (Compatibility.isCompatible(m, m_tmp) && m_tmp.hasModifierProperty("public"))
+                result.add(m_tmp);
+        }
+        return result;
+    }
+
+    public static List<PsiMethod> findSemiCompatibleMethodsInClass(PsiMethod m, PsiClass c){
+        final List <PsiMethod> result = new LinkedList<PsiMethod>();
+        for (PsiMethod m_tmp: c.getMethods()){
+            if (Compatibility.isSemiCompatible(m, m_tmp))
+                result.add(m_tmp);
+        }
+        return result;
+    }
+
+
+
+
+
+    public static int hasCompatiblePublicMethod(PsiMethod m, PsiClass c) {
+        return findCompatiblePublicMethodsInClass(m, c).size();
+    }
+
+    public static int hasCompatibleMethod(PsiMethod m, PsiClass c) {
+        return findCompatibleMethodsInClass(m,c).size();
+    }
+
+    /** Same as  hasCompatibleMethod but checks only the types of the parameters, not the return type.
+     * Used to detect problematic overloading in target superclass.
+     * */
+    public static int hasSemiCompatibleMethod(PsiMethod m, PsiClass c) {
+        return findSemiCompatibleMethodsInClass(m, c).size();
     }
 
     public static int hasCompatibleMethod(PsiMethod m, PsiClass c, boolean checkpublic){
         if (!checkpublic) return hasCompatibleMethod(m, c);
         else return  hasCompatiblePublicMethod(m, c);
     }
-
-
-
-    /* see definition for compatibility at top of this file */
-    public static int hasCompatiblePublicMethod(PsiMethod m, PsiClass c) {
-        int count = 0;
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if (m_tmp.hasModifierProperty("public") && AntiUnification.antiUnifiable(m, m_tmp)) count++;
-        }
-        return count;
-    }
-
-    public static int hasCompatibleMethod(PsiMethod m, PsiClass c) {
-        int count = 0;
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if ( (!m_tmp.hasModifierProperty("private")) && AntiUnification.antiUnifiable(m, m_tmp)) count++;
-        }
-        return count;
-    }
-
-    /** Same as  hasCompatibleMethod but checks only the types of the parameters, not the return type.
-     * Used to detect problematic overloading in target superclass.
-     * */
-    public static int hasParameterCompatibleMethod(PsiMethod m, PsiClass c) {
-        int count = 0;
-        for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if (AntiUnification.antiUnifiableParameters(m.getParameterList().getParameters(), m_tmp.getParameterList().getParameters())) count++;
-        }
-        return count;
-    }
-
 
 
 
@@ -300,18 +319,19 @@ public class GenAnalysisUtils {
 
                     // TODO : check that the method is not already overriding a method.
                     // TODO: There might be also a problem when introducing the method in super class introduces a nasty overloading.
-                    if (hasParameterCompatibleMethod((PsiMethod)member.getMember(),superclass) > 0) return null ; // This avoids a possibly problematic overloading in super class.
+                    if (hasSemiCompatibleMethod((PsiMethod) member.getMember(), superclass) > 0)
+                        return null ; // This avoids a possibly problematic overloading in super class.
 
                     return res ;
           }
 
           catch (AmbiguousOverloading e) {
-                    System.out.println("ambiguity found (overloading)") ; // debug
+                    System.out.println("(debug) ambiguity found (overloading)") ; // debug
                     return null ;
           }
 
           catch (MemberNotImplemented e)    {
-                 System.out.println("missing implementation for" + member.getMember() + "(with exception)") ; // debug
+                 System.out.println("(debug) missing implementation for " + member.getMember() + " (exception)") ; // debug
                  return null;
           }
 

@@ -41,6 +41,18 @@ public class Comparison {
         }
     }
 
+
+
+    public static boolean haveSameName(PsiField f1, PsiField f2) {
+        return f1.getName().equals(f2.getName());
+    }
+
+    public static boolean haveSameName(PsiMethod m1, PsiMethod m2) {
+        return m1.getName().equals(m2.getName());
+    }
+
+
+
     public static Boolean allObjectTypes(Collection<PsiType> c){
        for (PsiType t : c) {
            if (t instanceof PsiPrimitiveType) return false;
@@ -50,29 +62,34 @@ public class Comparison {
 
 
     public static boolean sameFields(PsiField f1, PsiField f2){
-        return     f1.getName().equals(f2.getName())
-                && f1.getType().equals(f2.getType());
+        return     haveSameName(f1, f2)
+                && haveSameType(f1, f2);
 
+    }
+
+    public static boolean haveSameType(PsiField f1, PsiField f2) {
+        return f1.getType().equals(f2.getType());
+    }
+
+    public static Boolean haveSameType(PsiMethod m1, PsiMethod m2){
+        return m1.getReturnType().equals(m2.getReturnType())
+                && sameParameterLists(m1.getParameterList(), m2.getParameterList()) ;
     }
 
     // see also sameMethods
     public static boolean hasSameMethod(PsiMethod m, PsiClass c){
         for (PsiMethod m_tmp: c.findMethodsByName(m.getName(), false)) {
-            if (sameType(m, m_tmp)) return true;
+            if (haveSameType(m, m_tmp)) return true;
         }
         return false;
     }
 
     /** Check that two methods have the same name and the same type. */
     public static boolean sameMethods(PsiMethod m1, PsiMethod m2){
-        return  m1.getName().equals(m2.getName())
-                && sameType(m1,m2)  ;
+        return  haveSameName(m1, m2) && haveSameType(m1, m2)  ;
     }
 
-    public static Boolean sameType (PsiMethod m1, PsiMethod m2){
-        return m1.getReturnType().equals(m2.getReturnType())
-                && sameParameterLists(m1.getParameterList(), m2.getParameterList()) ;
-    }
+
 
     public static boolean sameParameterLists(PsiParameterList l1, PsiParameterList l2){
         if (l1.getParametersCount() != l2.getParametersCount()) return false ;
@@ -95,26 +112,25 @@ public class Comparison {
         return true;
     }
 
+    public static boolean hasField (PsiField m, PsiClass c){
+        for (PsiField aField : c.getFields()) {
+                if (sameFields(m, aField))
+                    return true;
+            }
+        return false ;
+    }
+
     @Deprecated // used only in hasMembers
     public static boolean hasMember(PsiClass c, MemberInfo member) {
         boolean result = false;
         PsiMember x = member.getMember();
 
-        // *) Methods
-        if (x instanceof PsiMethod){ // FIXME : use hasSameMethod instead?
-            PsiMethod xx = (PsiMethod) x ;
-            for (PsiMethod m : c.getMethods()) {
-                if (sameMethods(xx, m))  result=true;
-            }
-
+        if (x instanceof PsiMethod){
+            return hasSameMethod((PsiMethod) x, c);
         }
 
-        // *) Fields
         else if (x instanceof PsiField){
-            PsiField xx = (PsiField) x; // TODO : follow the structure of 'hasCompatibleMembers' and use GenSubstitutionUtils
-            for (PsiField m : c.getFields()) {
-                if (sameFields(xx, m)) result=true; // break loop ?
-            }
+            return hasField((PsiField) x, c) ;
         }
 
         // *) Implements interface

@@ -65,12 +65,10 @@ public class GenBuildUtils {
       for (PsiTypeParameter theTypeParameter: megasub.keySet()){
         final Map<PsiClass,PsiType> m = megasub.get(theTypeParameter);
         for (PsiClass c : m.keySet()){
-          final PsiJavaCodeReferenceElement extendsRef = findReferenceToSuperclass(c, superClass);
+            final PsiJavaCodeReferenceElement extendsRef = findReferenceToSuperclass(c, superClass);
             PsiType theConcreteType = megasub.get(theTypeParameter, c);
-            System.out.println("Adding " + theConcreteType + " to extension " + extendsRef + " (to instantiate " + theTypeParameter +" )"); // Debug
             addTypeParameterToReference(extendsRef, theConcreteType, factory);
-            System.out.println("Result : " + extendsRef); // Debug
-          }
+        }
       }
     }
 

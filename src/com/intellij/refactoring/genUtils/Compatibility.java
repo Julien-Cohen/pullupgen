@@ -4,6 +4,7 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiPrimitiveType;
 import com.intellij.psi.PsiType;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Copyright 2012, 2016 Université de Nantes
@@ -22,32 +23,35 @@ import com.intellij.psi.PsiType;
  * limitations under the License.
  */
 
-/**
- * Created by julien on 09/05/16.
- */
-public class AntiUnification {
+
+public class Compatibility {
 
     /** DEFINITION :
      * Two types are anti-unifiable when they are instances of more general type (with type variables).
+     * Two methods are compatible when they have the same name and their types (return type + parameter types) are anti-unifiable.
+     * (Private methods are not considered compatibles.)
      */
 
 
     public static Boolean antiUnifiable(PsiMethod m1, PsiMethod m2){
 
-      if (!antiUnifiable(m1.getReturnType(), m2.getReturnType()))
-          return false ;
-
-      else
-          return antiUnifiableParameters(m1.getParameterList().getParameters(),
-                                         m2.getParameterList().getParameters()) ;
+      return antiUnifiable(m1.getReturnType(), m2.getReturnType())
+                && semiAntiUnifiable(m1, m2);
     }
 
-    public static Boolean antiUnifiableParameters(PsiParameter[] l1, PsiParameter[] l2){
-      final int count1 = l1.length ;
-      if (count1 != l2.length)
+
+    @NotNull
+    public static Boolean semiAntiUnifiable(PsiMethod m1, PsiMethod m2) {
+        return antiUnifiableParameters(m1.getParameterList().getParameters(),
+                                       m2.getParameterList().getParameters());
+    }
+
+    static Boolean antiUnifiableParameters(PsiParameter[] l1, PsiParameter[] l2){
+      final int nb = l1.length ;
+      if (nb != l2.length)
           return false ;
 
-      for (int i = 0; i<count1; i++){
+      for (int i = 0; i<nb; i++){
           if (!antiUnifiable(l1[i].getType(), l2[i].getType()))
               return false ;
       }
@@ -55,11 +59,28 @@ public class AntiUnification {
       return true;
     }
 
-    public static boolean antiUnifiable(PsiType t1, PsiType t2){
+    static boolean antiUnifiable(PsiType t1, PsiType t2){
         if (t1.equals(t2))
             return true ;
         if (t1 instanceof PsiPrimitiveType || t2 instanceof PsiPrimitiveType)
             return false ;
         return true ;
+    }
+
+    public static boolean isCompatible(PsiMethod m1, PsiMethod m2){
+        assert(!m1.hasModifierProperty("private"));
+        return
+                (!m2.hasModifierProperty("private"))
+                        && Comparison.haveSameName(m1,m2)
+                        && antiUnifiable(m1,m2) ;
+
+    }
+
+    public static boolean isSemiCompatible(PsiMethod m1, PsiMethod m2){
+
+        return
+                Comparison.haveSameName(m1,m2)
+                        && semiAntiUnifiable(m1,m2) ;
+
     }
 }
