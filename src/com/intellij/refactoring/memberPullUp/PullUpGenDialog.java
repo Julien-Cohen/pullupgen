@@ -217,12 +217,17 @@ public class PullUpGenDialog extends PullUpDialogBase<MemberInfoStorage, MemberI
 
     // new (julien)    (based on the handling of myClassCombo)
     protected void createSisterPanel(JPanel panel, GridBagConstraints gbConstraints) {
+
         GridBagConstraints sisgbConstraints = (GridBagConstraints) gbConstraints.clone();
         sisgbConstraints.gridy=0;
         sisgbConstraints.gridx=1;
-        panel.add(SeparatorFactory.createSeparator("Other classes to be modified", mySisterClassList), sisgbConstraints);
+
+        final String text = "Classes to be modified:";
+        panel.add(SeparatorFactory.createSeparator(text, mySisterClassList), sisgbConstraints);
+
         mySisterClassList = new JBList();
         mySisterClassList.setCellRenderer(new ShortClassCellRenderer(mySisterClassList.getCellRenderer()));  // from (2)
+        mySisterClassList.setFixedCellWidth((int)(1.1 * panel.getFontMetrics(panel.getFont()).charsWidth(text.toCharArray(), 0, text.length())));
         sisgbConstraints.gridy++;   // increment the target position before adding
         panel.add(mySisterClassList, sisgbConstraints);
         setSisterClassDisplay(); // cannot be done much earlier because myClassCombo must be initialized.

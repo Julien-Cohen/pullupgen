@@ -27,14 +27,12 @@ package com.intellij.refactoring.ui;
 
 import com.intellij.psi.*;
 import com.intellij.refactoring.classMembers.MemberInfoModel;
-import com.intellij.refactoring.genUtils.Comparison;
 import com.intellij.refactoring.genUtils.GenAnalysisUtils;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.ui.ColoredTableCellRenderer;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.RowIcon;
 import com.intellij.ui.SimpleTextAttributes;
-import com.intellij.util.IncorrectOperationException;
 
 import javax.swing.*;
 import javax.swing.table.TableColumnModel;
@@ -49,49 +47,64 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   protected final Boolean[] canGenerifyCheckBoxes ;
 
 
-  protected static final int CAN_MAKE_ABSTRACT_COLUMN = 3; // added Julien
-  protected static String canMakeAbstractColumnHeader = "can make abstract";
-  protected final ThreeValue[] canMakeAbstractCheckBoxes ;
+  protected static final int    CAN_MAKE_ABSTRACT_COLUMN    = 3 ; // added Julien
+  protected static String       canMakeAbstractColumnHeader = "can make abstract";
+  protected final  ThreeValue[] canMakeAbstractCheckBoxes ;
 
   enum ThreeValue {
       YesGenerics {public String toString(){return "Yes (with generics)";}},
-      YesPlain    {public String toString(){return "Yes (without generics)";}} , No}
+      YesPlain    {public String toString(){return "Yes (without generics)";}} ,
+      No}
 
   public CustomMemberSelectionTable(final List<MemberInfo> memberInfos, String abstractColumnHeader) {
     this(memberInfos, null, abstractColumnHeader);
   }
 
-  public CustomMemberSelectionTable(final List<MemberInfo> memberInfos, MemberInfoModel<PsiMember, MemberInfo> memberInfoModel, String abstractColumnHeader) {
+  public CustomMemberSelectionTable(final List<MemberInfo> memberInfos,
+                                    MemberInfoModel<PsiMember, MemberInfo> memberInfoModel,
+                                    String abstractColumnHeader)
+  {
     super(memberInfos, memberInfoModel, abstractColumnHeader);
-    final int size = memberInfos.size();
-    directAbstractPullupCheckBoxes = new Boolean[size];        // j
-    canGenerifyCheckBoxes = new Boolean[size];                 // j
-    canMakeAbstractCheckBoxes = new ThreeValue[size];          // j
+    final int nbLines = memberInfos.size();
+    directAbstractPullupCheckBoxes = new Boolean[nbLines];        // j
+    canGenerifyCheckBoxes = new Boolean[nbLines];                 // j
+    canMakeAbstractCheckBoxes = new ThreeValue[nbLines];          // j
     GenTableModel t = new GenTableModel (this); //julien
     setModel(t);                                // julien    (this is problematic)
 
-    //begin copy from AbstractMemberSelectionTable
 
-    TableColumnModel model = getColumnModel();
-    model.getColumn(DISPLAY_NAME_COLUMN).setCellRenderer(new CustomTableRenderer(this));
-      { // to be done again (why? because the first time this code is invoked, it acts on the model affected by the first setModel() invocation)
-        final int checkBoxWidth = new JCheckBox().getPreferredSize().width;
-        model.getColumn(CHECKED_COLUMN).setMaxWidth(checkBoxWidth);
-        model.getColumn(CHECKED_COLUMN).setMinWidth(checkBoxWidth);
-
-      }
-    if (myAbstractEnabled) { // FIXME to be done again (why?)
-      int width = (int)(1.3 * getFontMetrics(getFont()).charsWidth(myAbstractColumnHeader.toCharArray(), 0, myAbstractColumnHeader.length()));
-      model.getColumn(ABSTRACT_COLUMN).setMaxWidth(width);
-      model.getColumn(ABSTRACT_COLUMN).setPreferredWidth(width);
-    }
-
-    //end copy
-    int canMakeAbstractColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(canMakeAbstractColumnHeader.toCharArray(), 0, canMakeAbstractColumnHeader.length()));
-    getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setMaxWidth(canMakeAbstractColumnWidth);
-    getColumnModel().getColumn(CAN_MAKE_ABSTRACT_COLUMN).setPreferredWidth(canMakeAbstractColumnWidth);
+    configureColumnModel(getColumnModel());
 
 
+
+
+
+  }
+
+  protected void configureColumnModel(TableColumnModel m) {
+      // copy from AbstractMemberSelectionTable
+
+      m.getColumn(DISPLAY_NAME_COLUMN).setCellRenderer(new CustomTableRenderer(this));
+
+
+
+      // to be done again
+      // (why? because the first time this code is invoked, it acts on the model affected by the first setModel() invocation)
+      final int checkBoxWidth = new JCheckBox().getPreferredSize().width;
+      m.getColumn(CHECKED_COLUMN).setMaxWidth(checkBoxWidth);
+      m.getColumn(CHECKED_COLUMN).setMinWidth(checkBoxWidth);
+
+
+      // FIXME to be done again (why?)
+      final int width = (int)(1.3 * getFontMetrics(getFont()).charsWidth(myAbstractColumnHeader.toCharArray(), 0, myAbstractColumnHeader.length()));
+      m.getColumn(ABSTRACT_COLUMN).setMaxWidth(width);
+      m.getColumn(ABSTRACT_COLUMN).setPreferredWidth(width);
+
+      // end copy
+
+      int canMakeAbstractColumnWidth = (int)(1.3 * getFontMetrics(getFont()).charsWidth(canMakeAbstractColumnHeader.toCharArray(), 0, canMakeAbstractColumnHeader.length()));
+      m.getColumn(CAN_MAKE_ABSTRACT_COLUMN).setMaxWidth(canMakeAbstractColumnWidth);
+      m.getColumn(CAN_MAKE_ABSTRACT_COLUMN).setPreferredWidth(canMakeAbstractColumnWidth);
 
   }
 
@@ -102,9 +115,9 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   /* --- Compute and Fill properties --- */
   /* Need to check the boxes (arrays) and the memberInfo */
 
-  void fillCanGenMember(MemberInfo member, PsiClass sup){
+  void fillCanGenMember(MemberInfo member, PsiClass selectedSuper){
 
-      if (GenAnalysisUtils.computeCanGenMember(member, sup)) {
+      if (GenAnalysisUtils.computeCanGenMember(member, selectedSuper)) {
               setCanGenerifyColumnValue(member, true);
       }
       else  {
@@ -115,41 +128,13 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
   }
 
 
-  void fillDirectAbstractPullupField(MemberInfo member, PsiClass sup){
-        final boolean result = computeCanDirectAbstractPullupMember(sup, member);
+  void fillDirectAbstractPullupField(MemberInfo member, PsiClass selectedSuper){
+        final boolean result = GenAnalysisUtils.computeCanDirectAbstractPullupMember(selectedSuper, member);
         setDirectAbstractPullupColumnValue(member, result);
   }
 
 
-  // See also GenAnalysisUtils.hasMember
-  private static boolean computeCanDirectAbstractPullupMember(PsiClass sup, MemberInfo mem) {
-        PsiMember m = mem.getMember();
-
-
-        // *) Methods
-        if (m instanceof PsiMethod){
-            return GenAnalysisUtils.checkSubClassesHaveSameMethod((PsiMethod) m, sup) ;
-        }
-
-        // *) Fields
-        else if (m instanceof PsiField) { return false ; } // fIXME
-
-        // *) Implements interface
-        else  if (m instanceof PsiClass && Comparison.memberClassComesFromImplements(mem)) {
-
-            final PsiClassType[] referencedTypes = mem.getSourceReferenceList().getReferencedTypes();
-            assert(referencedTypes.length == 1) ;
-
-            return GenAnalysisUtils.checkSubClassesImplementInterface(referencedTypes[0], sup) ;
-        }
-
-        // *) Other cases.
-        else throw new IncorrectOperationException("this type of member not handled yet : " + m);
-
-  }
-
-
-  void fillCanMakeAbstractField(MemberInfo member) {
+    void fillCanMakeAbstractField(MemberInfo member) {
       //TODO warning : check the dependencies wetween the various informations.
       ThreeValue v = ThreeValue.No ;
       if (getDirectAbstractPullupColumnValue(member)) v = ThreeValue.YesPlain    ;
@@ -245,25 +230,18 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
 
 
   // Added Julien
-  //private static class GenTableModel   extends AbstractTableModel {
   private static class GenTableModel   extends MyTableModel {
-        //private final AbstractMemberSelectionTable<PsiMember, MemberInfo> myTable; // J
+
         private final CustomMemberSelectionTable myTableCopy ;
 
 
-        //public MyTableModel(AbstractMemberSelectionTable<PsiMember, MemberInfo> table) {
         public GenTableModel(CustomMemberSelectionTable table) {
             super(table);      //j
             myTableCopy = table;
         }
 
         public int getColumnCount() {
-            if (myTableCopy.myAbstractEnabled) {
-                return (4);         //julien
-            }
-            else {                              // TODO : simplify that
-                return (3); //julien
-            }
+            return (4);
         }
 
 
@@ -349,19 +327,24 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
             fireTableDataChanged();
 //      fireTableRowsUpdated(rowIndex, rowIndex);
         }
-    }  //end of inner class
+  }  //end of inner class
 
 
-    //copy (I would prefer to use the one in AbstractMemberSelectionTable but it is private)
-   private static class CustomTableRenderer extends ColoredTableCellRenderer {
+   //copy (I would prefer to use the one in AbstractMemberSelectionTable but it is private)
+  private static class CustomTableRenderer extends ColoredTableCellRenderer {
+
     private final CustomMemberSelectionTable myTable;
 
     public CustomTableRenderer(CustomMemberSelectionTable table) {
       myTable = table;
     }
 
-    public void customizeCellRenderer(JTable table, final Object value,
-                                      boolean isSelected, boolean hasFocus, final int row, final int column) {
+    public void customizeCellRenderer(JTable table,
+                                      final Object value,
+                                      boolean isSelected,
+                                      boolean hasFocus,
+                                      final int row,
+                                      final int column) {
 
       final int modelColumn = myTable.convertColumnIndexToModel(column);
       final MemberInfo memberInfo = myTable.myMemberInfos.get(row);
@@ -399,6 +382,10 @@ public class CustomMemberSelectionTable extends MemberSelectionTable {
         c = JBColor.BLUE;
       }
       append((String)value, new SimpleTextAttributes(Font.PLAIN, c));
+
+      if (myTable.getCanMakeAbstractColumnValue(memberInfo)==ThreeValue.No) { // Julien
+          this.setForeground(JBColor.LIGHT_GRAY);                             // Julien
+      }
     }
 
   }

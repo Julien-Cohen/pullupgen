@@ -331,7 +331,7 @@ public class GenAnalysisUtils {
           }
 
           catch (MemberNotImplemented e)    {
-                 System.out.println("(debug) missing implementation for " + member.getMember() + " (exception)") ; // debug
+                 System.out.println("(debug) no implementation for " + member.getMember() + " in " + e.c) ; // debug
                  return null;
           }
 
@@ -353,5 +353,32 @@ public class GenAnalysisUtils {
             else  result = false ;
         }
         return result;
+    }
+
+    // See also hasMember
+    public static boolean computeCanDirectAbstractPullupMember(PsiClass selectedSuper, MemberInfo mem) {
+          PsiMember m = mem.getMember();
+
+
+          // *) Methods
+          if (m instanceof PsiMethod){
+              return checkSubClassesHaveSameMethod((PsiMethod) m, selectedSuper) ;
+          }
+
+          // *) Fields
+          else if (m instanceof PsiField) { return false ; } // fIXME
+
+          // *) Implements interface
+          else  if (m instanceof PsiClass && Comparison.memberClassComesFromImplements(mem)) {
+
+              final PsiClassType[] referencedTypes = mem.getSourceReferenceList().getReferencedTypes();
+              assert(referencedTypes.length == 1) ;
+
+              return checkSubClassesImplementInterface(referencedTypes[0], selectedSuper) ;
+          }
+
+          // *) Other cases.
+          else throw new IncorrectOperationException("this type of member not handled yet : " + m);
+
     }
 }

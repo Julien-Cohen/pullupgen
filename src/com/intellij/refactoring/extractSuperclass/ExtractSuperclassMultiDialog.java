@@ -135,8 +135,9 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
   // new
   protected JPanel createSisterPanel() {
       JPanel thePanel = new JPanel(new BorderLayout());
+      final String text = "Future sub-classes:";
       mySisterClassList.setCellRenderer(new ShortClassCellRenderer(mySisterClassList.getCellRenderer()));
-      thePanel.add(SeparatorFactory.createSeparator("Future sub-classes", mySisterClassList), BorderLayout.NORTH);
+      thePanel.add(SeparatorFactory.createSeparator(text, mySisterClassList), BorderLayout.NORTH);
       thePanel.add(mySisterClassList, BorderLayout.CENTER);
       //updateSisterClassDisplay(getSisterClasses());
       updateSisterClassDisplay();
