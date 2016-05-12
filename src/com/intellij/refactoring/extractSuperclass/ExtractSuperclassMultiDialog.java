@@ -74,16 +74,12 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
   }
 
   protected String getClassNameLabelText() {
-    return isExtractSuperclass()
-           ? RefactoringBundle.message("superclass.name")
-           : RefactoringBundle.message("extractSuper.rename.original.class.to");
+    return RefactoringBundle.message("superclass.name");
   }
 
   @Override
   protected String getPackageNameLabelText() {
-    return isExtractSuperclass()
-           ? RefactoringBundle.message("package.for.new.superclass")
-           : RefactoringBundle.message("package.for.original.class");
+    return  RefactoringBundle.message("package.for.new.superclass") ;
   }
 
   protected String getEntityName() {
@@ -93,6 +89,19 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
   @Override
   protected String getTopLabelText() {
     return RefactoringBundle.message("extract.superclass.from");
+  }
+
+  @Override
+  protected JPanel createDestinationRootPanel (){
+    // Initially contains the "Target destination directory".
+    return  null; // J
+  }
+
+  // J : to remove the possibility to create a sub-class instead of a super-class
+  @Override
+  protected JComponent createActionComponent() {
+    super.createActionComponent(); // J : To inialize correctly some private variables
+    return Box.createHorizontalBox(); // To create an empty panel instead of the one with radio buttons
   }
 
   protected JComponent createCenterPanel() {
@@ -139,6 +148,7 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
       mySisterClassList.setCellRenderer(new ShortClassCellRenderer(mySisterClassList.getCellRenderer()));
       thePanel.add(SeparatorFactory.createSeparator(text, mySisterClassList), BorderLayout.NORTH);
       thePanel.add(mySisterClassList, BorderLayout.CENTER);
+      mySisterClassList.setPreferredSize(new Dimension (300,100));
       //updateSisterClassDisplay(getSisterClasses());
       updateSisterClassDisplay();
       return thePanel;
