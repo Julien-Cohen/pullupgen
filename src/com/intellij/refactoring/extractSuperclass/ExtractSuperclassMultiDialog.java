@@ -58,14 +58,20 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
     boolean checkConflicts(ExtractSuperclassMultiDialog dialog);
   }
 
-  final boolean withGenerification;
+  final boolean myWithGenerification;
 
   private final Callback myCallback;
 
-  public ExtractSuperclassMultiDialog(Project project, PsiClass sourceClass, List<MemberInfo> selectedMembers, Callback callback, boolean generification) {
+  public ExtractSuperclassMultiDialog(
+          Project project,
+          PsiClass sourceClass,
+          List<MemberInfo> selectedMembers,
+          Callback callback,
+          boolean generification
+          ) {
     super(project, sourceClass, selectedMembers, ExtractSuperclassMultiHandler.REFACTORING_NAME);
     myCallback = callback;
-    withGenerification=generification;
+    myWithGenerification = generification;
     init();
   }
 
@@ -149,14 +155,13 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
       thePanel.add(SeparatorFactory.createSeparator(text, mySisterClassList), BorderLayout.NORTH);
       thePanel.add(mySisterClassList, BorderLayout.CENTER);
       mySisterClassList.setPreferredSize(new Dimension (300,100));
-      //updateSisterClassDisplay(getSisterClasses());
       updateSisterClassDisplay();
       return thePanel;
   }
 
 
   // Julien
-  protected Collection<PsiClass> getSisterClasses() {
+  protected Collection<PsiClass> computeSisterClasses() {
         return SisterClassesUtil.findSisterClassesInDirectory(mySourceClass);
   }
 
@@ -168,7 +173,11 @@ class ExtractSuperclassMultiDialog extends JavaExtractSuperBaseDialog {
 
   //Julien
   void updateSisterClassDisplay(){
-      Collection<PsiClass> l = ExtractSuperClassMultiUtil.filterSisterClasses(getSelectedMemberInfos(), withGenerification, getSisterClasses());
+      Collection<PsiClass> l = ExtractSuperClassMultiUtil.filterSisterClasses(
+              getSelectedMemberInfos(),
+              myWithGenerification,
+              computeSisterClasses()
+      );
       updateSisterClassDisplay(l);
   }
 
