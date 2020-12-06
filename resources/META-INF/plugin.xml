@@ -42,6 +42,7 @@
             </p>
             ]]>
   </change-notes>
+
   <actions>
     <!-- Add your actions here -->
       <action id="PullUpAbstractGenerics.PullUpGenDialog" class="fr.polytech.refactoring.actions.PullUpGenAction" text="Pull Up with Generics (abstract)"
