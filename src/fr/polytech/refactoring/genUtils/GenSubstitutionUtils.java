@@ -10,9 +10,11 @@
 package fr.polytech.refactoring.genUtils;
 
 import com.intellij.psi.*;
+import com.intellij.psi.util.PsiTypesUtil;
 import com.intellij.util.IncorrectOperationException;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Copyright 2012, 2016 Université de Nantes
@@ -51,72 +53,107 @@ public class GenSubstitutionUtils {
        assert(lm.size() != 0);
 
        final ParamSubstitution result = new ParamSubstitution();
-
-
+        Map<Map<PsiClass, PsiType>, PsiType> substitutions = new HashMap<>();
 
        // first, check the return type
-       final List <PsiType> returnTypes = new Vector<PsiType>();
-       final Map<PsiClass, PsiType> returnTypesMap = new HashMap<PsiClass, PsiType>();
+       final List <PsiType> returnTypes = new Vector<>();
+       final Map<PsiClass, PsiType> returnTypesMap = new HashMap<>();
        for (PsiMethod m: lm){  // collect the return types
            returnTypes.add(m.getReturnType());
            returnTypesMap.put(m.getContainingClass(), m.getReturnType());
        }
-       // check these types (and modify 'result')
-       if (!Comparison.allTypesEquals(returnTypes)) {
 
-           if (!Comparison.allObjectTypes(returnTypes))
-               throw new IncorrectOperationException("Cannot generify primitive type.");
-
-
-           // we know that we have to generify that position, but we have to check if we can reuse an existing type parameter.
-           PsiTypeParameter selected;
-           if (theSubstitution.containsValue(returnTypesMap))
-               selected = getKeyFor(theSubstitution, returnTypesMap);
-           else {
-                    final String fresh =  GenBuildUtils.buildTypeParameter(-1, baseNameForTypeVariables, boundNames);
-                    boundNames.add(fresh);
-                    selected = factory.createTypeParameterFromText(fresh, null);
-                    theSubstitution.put(selected, returnTypesMap); /* the new association is saved (for potential reuse) */
-           }
-           result.put(-1, selected);    // -1 represent the return type (by convention)
-           // TODO : return also the list of created type parameters
-       }
-       else {} /* when all the return types are equals, nothing to do. */
-
-
-
+        // check these types (and modify 'result')
+        PsiType returnType = antiunify(returnTypesMap, substitutions, factory, baseNameForTypeVariables, boundNames, -1, theSubstitution);
+        if (returnType != null) {
+            result.put(-1, returnType);
+        }
 
        // second, check the types of the method parameters
-       List<PsiType> consideredTypes;
-       Map<PsiClass, PsiType> consideredTypesMap;
        for (int pos=0; pos<lm.get(0).getParameterList().getParametersCount(); pos++) { // for each position
-         consideredTypes = new Vector<PsiType>();
-         consideredTypesMap = new HashMap<PsiClass, PsiType>();
-         for (PsiMethod m: lm){ // collect the types at the considered position in the list of methods
-           consideredTypes.add(m.getParameterList().getParameters()[pos].getType());
-           consideredTypesMap.put(m.getContainingClass(), m.getParameterList().getParameters()[pos].getType());
-         }
-         // check these types (modify 'result')
-         if (!Comparison.allTypesEquals(consideredTypes)) {
-           if (Comparison.allObjectTypes(consideredTypes)) {
-             // we know that we have to generify that position, but we have to check if we can reuse an existing type parameter.
-             if(theSubstitution.containsValue(consideredTypesMap)) {
-                 result.put(pos, getKeyFor(theSubstitution, consideredTypesMap));} // -1 represent the return type (by convention)
-             else {
-                 final String fresh = GenBuildUtils.buildTypeParameter(pos, baseNameForTypeVariables, boundNames);
-                 boundNames.add(fresh);
-                 PsiTypeParameter t = factory.createTypeParameterFromText(fresh, null);
-                 result.put(pos, t);
-                 theSubstitution.put(t, consideredTypesMap);
+           List<PsiType> consideredTypes = new Vector<>();
+           Map<PsiClass, PsiType> consideredTypesMap = new HashMap<>();
+             for (PsiMethod m: lm){ // collect the types at the considered position in the list of methods
+               consideredTypes.add(m.getParameterList().getParameters()[pos].getType());
+               consideredTypesMap.put(m.getContainingClass(), m.getParameterList().getParameters()[pos].getType());
              }
-
-           }
-           else throw new IncorrectOperationException("Cannot generify primitive type.");
-         }
-
+            // check these types (modify 'result')
+            PsiType argumentType = antiunify(consideredTypesMap, substitutions, factory, baseNameForTypeVariables, boundNames, pos, theSubstitution);
+            if (argumentType != null) {
+               result.put(pos, argumentType);
+            }
        }
 
        return result ;
+    }
+
+    private static PsiType antiunify(
+            Map<PsiClass, PsiType> types,
+            Map<Map<PsiClass, PsiType>, PsiType> substitutions,
+            PsiElementFactory factory,
+            String baseNameForTypeVariables,
+            Collection<String> boundNames,
+            int pos,
+            DependentSubstitution megaSubs) {
+        if (substitutions.containsKey(types)) {
+            return substitutions.get(types);
+        }
+        else {
+            List<PsiType> listTypes = new ArrayList<>(types.values());
+            if (Comparison.allTypesEquals(listTypes)) {
+                substitutions.put(types, null);
+                return null;
+            }
+            else if (!Comparison.allObjectTypes(listTypes)) {
+                throw new IncorrectOperationException("Cannot generify primitive type.");
+            }
+            else if (Comparison.allArrayTypes(listTypes)) {
+                final String fresh =  GenBuildUtils.buildTypeParameter(pos, baseNameForTypeVariables, boundNames);
+                boundNames.add(fresh);
+                PsiTypeParameter typeParameter = factory.createTypeParameterFromText(fresh, null);
+                megaSubs.put(typeParameter, types);
+                PsiType arrayType = factory.createType(typeParameter, new PsiType[0]).createArrayType();
+                substitutions.put(types, arrayType);
+                return arrayType;
+            }
+            else if (!Comparison.allClassTypes(listTypes)) {
+                final String fresh =  GenBuildUtils.buildTypeParameter(pos, baseNameForTypeVariables, boundNames);
+                boundNames.add(fresh);
+                PsiTypeParameter typeParameter = factory.createTypeParameterFromText(fresh, null);
+                megaSubs.put(typeParameter, types);
+                PsiType type = factory.createType(typeParameter, new PsiType[0]);
+                substitutions.put(types, type);
+                return type;
+            }
+            else {
+                List<PsiClassType> classTypes = listTypes.stream().map(t -> (PsiClassType) t).collect(Collectors.toList());
+                List<PsiClassType> rawTypes = classTypes.stream().map(PsiClassType::rawType).collect(Collectors.toList());
+                if (Comparison.allTypesEquals(rawTypes)) {
+                    int size = classTypes.get(0).getParameterCount();
+                    PsiType[] parameters = new PsiType[size];
+                    for (int i = 0; i < size; i++) {
+                        Map<PsiClass, PsiType> typeParameters = new HashMap<>();
+                        for (PsiClassType t : classTypes) {
+                            typeParameters.put(getKeyFor(types, t), t.getParameters()[i]);
+                        }
+                        PsiType typeParameter = antiunify(typeParameters, substitutions, factory, baseNameForTypeVariables, boundNames, pos, megaSubs);
+                        parameters[i] = typeParameter;
+                    }
+                    PsiClassType type = factory.createType(rawTypes.get(0).resolve(), parameters);
+                    substitutions.put(types, type);
+                    return type;
+                }
+                else {
+                    final String fresh =  GenBuildUtils.buildTypeParameter(pos, baseNameForTypeVariables, boundNames);
+                    boundNames.add(fresh);
+                    PsiTypeParameter typeParameter = factory.createTypeParameterFromText(fresh, null);
+                    megaSubs.put(typeParameter, types);
+                    PsiType type = factory.createType(typeParameter, new PsiType[0]);
+                    substitutions.put(types, type);
+                    return type;
+                }
+            }
+        }
     }
 
     static <A,B> A getKeyFor (Map <A, B> m , B v) throws Error {

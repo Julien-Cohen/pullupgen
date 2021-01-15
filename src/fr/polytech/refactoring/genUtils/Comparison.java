@@ -30,7 +30,7 @@ public class Comparison {
 
 
 
-    public static Boolean allTypesEquals (List<PsiType> c){
+    public static Boolean allTypesEquals (List<? extends PsiType> c){
        if (c.size() < 2) return true ;
         else {
             PsiType t = c.get(0);
@@ -175,5 +175,19 @@ public class Comparison {
 
         return   ((PsiClass) m.getMember()).isInterface() && !(m.getOverrides()) ;
 
+    }
+
+    public static boolean allArrayTypes(List<PsiType> types) {
+        for (PsiType t : types) {
+            if (!(t instanceof PsiArrayType)) return false;
+        }
+        return true ;
+    }
+
+    public static boolean allClassTypes(List<PsiType> types) {
+        for (PsiType t : types) {
+            if (!(t instanceof PsiClassType)) return false;
+        }
+        return true ;
     }
 }

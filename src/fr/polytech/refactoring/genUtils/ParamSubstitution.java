@@ -1,5 +1,6 @@
 package fr.polytech.refactoring.genUtils;
 
+import com.intellij.psi.PsiType;
 import com.intellij.psi.PsiTypeParameter;
 
 import java.util.HashMap;
@@ -23,6 +24,6 @@ import java.util.Map;
 
 /** This is a type alias, for readability. */
 public class ParamSubstitution
-        extends HashMap<Integer, PsiTypeParameter>
-        implements Map<Integer, PsiTypeParameter>
+        extends HashMap<Integer, PsiType>
+        implements Map<Integer, PsiType>
 {}

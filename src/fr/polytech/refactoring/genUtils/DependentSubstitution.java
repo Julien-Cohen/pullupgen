@@ -4,9 +4,9 @@ package fr.polytech.refactoring.genUtils;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiType;
 import com.intellij.psi.PsiTypeParameter;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Copyright 2012, 2016 Université de Nantes
@@ -31,10 +31,7 @@ import java.util.Map;
      * It can be seen as a substitution with two parameters (the type variable and the considered class) instead of one (the type variable) in PsiSubstitutor.
      * Exemple : [ T1 : {in A replaced by C ; in B replaced by D}, T2 : {in A replaced by E ; in B replaced by C}] */
 
-public class DependentSubstitution
-    extends    HashMap <PsiTypeParameter, Map<PsiClass,PsiType> >
-    implements Map     <PsiTypeParameter, Map<PsiClass,PsiType> > {
-
+public class DependentSubstitution extends HashMap<PsiTypeParameter, Map<PsiClass,PsiType>> implements Map<PsiTypeParameter, Map<PsiClass,PsiType>> {
 
     /**  Returns the mappings that are in m1 but not in m2 */
     public static DependentSubstitution difference(DependentSubstitution m1, DependentSubstitution m2){
@@ -45,10 +42,10 @@ public class DependentSubstitution
            return result;
     }
 
-    public PsiType get(PsiTypeParameter t, PsiClass c){
+    private HashMap<PsiTypeParameter, Map<PsiClass,List<PsiType>>> internal = new HashMap<>();
+
+    public PsiType getConcretes(PsiTypeParameter t, PsiClass c){
         return this.get(t).get(c);
     }
-
-
 
 }

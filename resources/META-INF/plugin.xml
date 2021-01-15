@@ -1,5 +1,5 @@
-<idea-plugin version="2">
-  <name>Pull up method refactoring extension</name>
+<idea-plugin>
+  <name>Pull up method Refactoring Extension</name>
   <depends>com.intellij</depends>
   <description><![CDATA[
      <p> *** Warning : this is an experimental software, it contains many bugs. *** </p>
@@ -8,7 +8,6 @@
             ]]></description>
   <version>0.3e</version>
   <vendor>Julien Cohen (Ascola team)</vendor>
-  <idea-version since-build="141.3056.4"/>
 
   <application-components>
     <!-- Add your application components here -->

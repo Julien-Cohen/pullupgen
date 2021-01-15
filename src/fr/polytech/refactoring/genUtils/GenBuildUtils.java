@@ -4,6 +4,7 @@ import com.intellij.psi.*;
 import com.intellij.util.IncorrectOperationException;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 
@@ -33,10 +34,8 @@ public class GenBuildUtils {
         final PsiElementFactory factory = JavaPsiFacade.getElementFactory(m.getProject());
         
         for (Integer pos : lp.keySet()){
-            final PsiTypeParameter t1 = lp.get(pos);
-            final String     typename = t1.getName();
-            final PsiType      t2     = factory.createTypeFromText(typename, null);
-            final PsiElement   e      = factory.createTypeElement(t2);
+            final PsiType      t1     = lp.get(pos);
+            final PsiElement   e      = factory.createTypeElement(t1);
 
             if (pos == -1) {
               m.getReturnTypeElement().replace(e);
@@ -66,8 +65,8 @@ public class GenBuildUtils {
         final Map<PsiClass,PsiType> m = megasub.get(theTypeParameter);
         for (PsiClass c : m.keySet()){
             final PsiJavaCodeReferenceElement extendsRef = findReferenceToSuperclass(c, superClass);
-            PsiType theConcreteType = megasub.get(theTypeParameter, c);
-            addTypeParameterToReference(extendsRef, theConcreteType, factory);
+            PsiType concreteType = megasub.getConcretes(theTypeParameter, c);
+            addTypeParameterToReference(extendsRef, concreteType, factory);
         }
       }
     }
@@ -113,7 +112,7 @@ public class GenBuildUtils {
     }
     
     static void addTypeParameterToReference(PsiJavaCodeReferenceElement r, PsiType t, PsiElementFactory factory ){
-      r.getParameterList().add(factory.createTypeElement(t));  
+        r.getParameterList().add(factory.createTypeElement(t));
     }
 
 
