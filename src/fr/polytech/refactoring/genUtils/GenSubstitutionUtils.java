@@ -14,6 +14,7 @@ import com.intellij.psi.util.PsiTypesUtil;
 import com.intellij.util.IncorrectOperationException;
 
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
@@ -56,10 +57,8 @@ public class GenSubstitutionUtils {
         Map<Map<PsiClass, PsiType>, PsiType> substitutions = new HashMap<>();
 
        // first, check the return type
-       final List <PsiType> returnTypes = new Vector<>();
        final Map<PsiClass, PsiType> returnTypesMap = new HashMap<>();
        for (PsiMethod m: lm){  // collect the return types
-           returnTypes.add(m.getReturnType());
            returnTypesMap.put(m.getContainingClass(), m.getReturnType());
        }
 
@@ -71,10 +70,8 @@ public class GenSubstitutionUtils {
 
        // second, check the types of the method parameters
        for (int pos=0; pos<lm.get(0).getParameterList().getParametersCount(); pos++) { // for each position
-           List<PsiType> consideredTypes = new Vector<>();
            Map<PsiClass, PsiType> consideredTypesMap = new HashMap<>();
              for (PsiMethod m: lm){ // collect the types at the considered position in the list of methods
-               consideredTypes.add(m.getParameterList().getParameters()[pos].getType());
                consideredTypesMap.put(m.getContainingClass(), m.getParameterList().getParameters()[pos].getType());
              }
             // check these types (modify 'result')
@@ -101,20 +98,19 @@ public class GenSubstitutionUtils {
         else {
             List<PsiType> listTypes = new ArrayList<>(types.values());
             if (Comparison.allTypesEquals(listTypes)) {
-                substitutions.put(types, null);
-                return null;
+                substitutions.put(types, listTypes.get(0));
+                return listTypes.get(0);
             }
             else if (!Comparison.allObjectTypes(listTypes)) {
                 throw new IncorrectOperationException("Cannot generify primitive type.");
             }
             else if (Comparison.allArrayTypes(listTypes)) {
-                final String fresh =  GenBuildUtils.buildTypeParameter(pos, baseNameForTypeVariables, boundNames);
-                boundNames.add(fresh);
-                PsiTypeParameter typeParameter = factory.createTypeParameterFromText(fresh, null);
-                megaSubs.put(typeParameter, types);
-                PsiType arrayType = factory.createType(typeParameter, new PsiType[0]).createArrayType();
-                substitutions.put(types, arrayType);
-                return arrayType;
+                Map<PsiClass, PsiType> noArrays = new HashMap<>();
+                types.forEach((psiClass, psiType) -> noArrays.put(psiClass, ((PsiArrayType) psiType).getComponentType()));
+
+                PsiType typeParameter = antiunify(noArrays, substitutions, factory, baseNameForTypeVariables, boundNames, pos, megaSubs);
+                substitutions.put(types, typeParameter);
+                return typeParameter.createArrayType();
             }
             else if (!Comparison.allClassTypes(listTypes)) {
                 final String fresh =  GenBuildUtils.buildTypeParameter(pos, baseNameForTypeVariables, boundNames);
