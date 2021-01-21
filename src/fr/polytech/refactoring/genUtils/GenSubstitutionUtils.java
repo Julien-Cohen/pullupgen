@@ -84,7 +84,7 @@ public class GenSubstitutionUtils {
        return result ;
     }
 
-    private static PsiType antiunify(
+    public static PsiType antiunify(
             Map<PsiClass, PsiType> types,
             Map<Map<PsiClass, PsiType>, PsiType> substitutions,
             PsiElementFactory factory,
@@ -92,7 +92,11 @@ public class GenSubstitutionUtils {
             Collection<String> boundNames,
             int pos,
             DependentSubstitution megaSubs) {
-        if (substitutions.containsKey(types)) {
+        if (megaSubs.containsValue(types)) {
+            PsiTypeParameter typeParameter = getKeyFor(megaSubs, types);
+            return PsiTypesUtil.getClassType(typeParameter);
+        }
+        else if (substitutions.containsKey(types)) {
             return substitutions.get(types);
         }
         else {
