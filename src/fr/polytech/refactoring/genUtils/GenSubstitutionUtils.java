@@ -133,9 +133,14 @@ public class GenSubstitutionUtils {
                     PsiType[] parameters = new PsiType[size];
                     for (int i = 0; i < size; i++) {
                         Map<PsiClass, PsiType> typeParameters = new HashMap<>();
-                        for (PsiClassType t : classTypes) {
+                        int finalI = i;
+                        types.forEach((key, psiType) -> typeParameters.put(key, classTypes.get(classTypes.indexOf(psiType)).getParameters()[finalI]));
+                        /*for (PsiClassType t : classTypes) {
+                            types
+                            PsiClass keyFor = getKeyFor(types, t);
+                            PsiType tt = t.getParameters()[i];
                             typeParameters.put(getKeyFor(types, t), t.getParameters()[i]);
-                        }
+                        }*/
                         PsiType typeParameter = antiunify(typeParameters, substitutions, factory, baseNameForTypeVariables, boundNames, pos, megaSubs);
                         parameters[i] = typeParameter;
                     }
