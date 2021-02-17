@@ -31,9 +31,19 @@ import java.util.*;
      * It can be seen as a substitution with two parameters (the type variable and the considered class) instead of one (the type variable) in PsiSubstitutor.
      * Exemple : [ T1 : {in A replaced by C ; in B replaced by D}, T2 : {in A replaced by E ; in B replaced by C}] */
 
-public class DependentSubstitution extends HashMap<PsiTypeParameter, Map<PsiClass,PsiType>> implements Map<PsiTypeParameter, Map<PsiClass,PsiType>> {
+public class DependentSubstitution
+            extends HashMap<PsiTypeParameter, Map<PsiClass,PsiType>>
+            implements Map<PsiTypeParameter, Map<PsiClass,PsiType>> {
 
-    /**  Returns the mappings that are in m1 but not in m2 */
+    /**  Returns the mappings that are in m1 but not in m2. This is needed to be able to add only
+     *   the new part of the substitution to the final source code.
+     *   Exemple :
+     *    - initial code S<T> and A extends S<B>
+     *    - initial substitution : (T->B in A)
+     *    - final substitution : (T->B, T2->C in A)
+     *    - we only add (T2->C) to get S<T,T2> and  A extends S(B,C)
+     *    Here, we have used the difference between the final substitution and the initial
+     *    one.                                                                                   */
     public static DependentSubstitution difference(DependentSubstitution m1, DependentSubstitution m2){
            DependentSubstitution result = new DependentSubstitution() ;
            for(PsiTypeParameter t:m1.keySet()){
@@ -42,9 +52,7 @@ public class DependentSubstitution extends HashMap<PsiTypeParameter, Map<PsiClas
            return result;
     }
 
-    private HashMap<PsiTypeParameter, Map<PsiClass,List<PsiType>>> internal = new HashMap<>();
-
-    public PsiType getConcretes(PsiTypeParameter t, PsiClass c){
+        public PsiType getConcretes(PsiTypeParameter t, PsiClass c){
         return this.get(t).get(c);
     }
 

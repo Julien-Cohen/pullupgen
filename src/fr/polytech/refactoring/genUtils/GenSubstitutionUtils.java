@@ -14,12 +14,13 @@ import com.intellij.psi.util.PsiTypesUtil;
 import com.intellij.util.IncorrectOperationException;
 
 import java.util.*;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
- * Copyright 2012, 2016 Université de Nantes
- * Contributor : Julien Cohen (Ascola team, Univ. Nantes)
+ * Copyright 2012, 2016, 2021 Université de Nantes
+ * Contributor : Julien Cohen (Ascola team, Univ. Nantes) (2012-2016)
+ * Contributor : William Degrange (as student of Polytech / Université de Nantes) 2020-2021
+ *
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +64,7 @@ public class GenSubstitutionUtils {
        }
 
         // check these types (and modify 'result')
-        PsiType returnType = antiunify(returnTypesMap, substitutions, factory, baseNameForTypeVariables, boundNames, -1, theSubstitution);
+        PsiType returnType = antiunify_column(returnTypesMap, substitutions, factory, baseNameForTypeVariables, boundNames, -1, theSubstitution);
         if (returnType != null) {
             result.put(-1, returnType);
         }
@@ -75,7 +76,7 @@ public class GenSubstitutionUtils {
                consideredTypesMap.put(m.getContainingClass(), m.getParameterList().getParameters()[pos].getType());
              }
             // check these types (modify 'result')
-            PsiType argumentType = antiunify(consideredTypesMap, substitutions, factory, baseNameForTypeVariables, boundNames, pos, theSubstitution);
+            PsiType argumentType = antiunify_column(consideredTypesMap, substitutions, factory, baseNameForTypeVariables, boundNames, pos, theSubstitution);
             if (argumentType != null) {
                result.put(pos, argumentType);
             }
@@ -84,7 +85,16 @@ public class GenSubstitutionUtils {
        return result ;
     }
 
-    public static PsiType antiunify(
+
+    /* If we have the following list of methods to consider :
+     *   in A :   TA0 m (TA1, TA2, TA3)
+     *   in B :   TB0 m (TB1, TB2, TB3)
+     *   in C :   TC0 m (TC1, TC2, TC3)
+     *  we have to unify types in column :
+     *  TA0 with TB0 and TC0, TA1 with TB1 and TC1, and so on.
+     */
+
+    public static PsiType antiunify_column(
             Map<PsiClass, PsiType> types,
             Map<Map<PsiClass, PsiType>, PsiType> substitutions,
             PsiElementFactory factory,
@@ -112,7 +122,7 @@ public class GenSubstitutionUtils {
                 Map<PsiClass, PsiType> noArrays = new HashMap<>();
                 types.forEach((psiClass, psiType) -> noArrays.put(psiClass, ((PsiArrayType) psiType).getComponentType()));
 
-                PsiType typeParameter = antiunify(noArrays, substitutions, factory, baseNameForTypeVariables, boundNames, pos, megaSubs);
+                PsiType typeParameter = antiunify_column(noArrays, substitutions, factory, baseNameForTypeVariables, boundNames, pos, megaSubs);
                 substitutions.put(types, typeParameter);
                 return typeParameter.createArrayType();
             }
@@ -135,13 +145,7 @@ public class GenSubstitutionUtils {
                         Map<PsiClass, PsiType> typeParameters = new HashMap<>();
                         int finalI = i;
                         types.forEach((key, psiType) -> typeParameters.put(key, classTypes.get(classTypes.indexOf(psiType)).getParameters()[finalI]));
-                        /*for (PsiClassType t : classTypes) {
-                            types
-                            PsiClass keyFor = getKeyFor(types, t);
-                            PsiType tt = t.getParameters()[i];
-                            typeParameters.put(getKeyFor(types, t), t.getParameters()[i]);
-                        }*/
-                        PsiType typeParameter = antiunify(typeParameters, substitutions, factory, baseNameForTypeVariables, boundNames, pos, megaSubs);
+                        PsiType typeParameter = antiunify_column(typeParameters, substitutions, factory, baseNameForTypeVariables, boundNames, pos, megaSubs);
                         parameters[i] = typeParameter;
                     }
                     PsiClassType type = factory.createType(rawTypes.get(0).resolve(), parameters);
@@ -181,7 +185,7 @@ public class GenSubstitutionUtils {
         final int nbParams = a.length;
 
         for (int i=0; i< nbParams; i++){
-            Map <PsiClass, PsiType> m= new HashMap <PsiClass, PsiType>();
+            Map <PsiClass, PsiType> m= new HashMap <>();
             for (PsiClass c : sisterClasses){
                 final PsiType[] parameters = GenBuildUtils.findReferenceToSuperclass(c, superclass).getTypeParameters();
                 PsiType t;
@@ -196,9 +200,9 @@ public class GenSubstitutionUtils {
 
 
 
-
+    /** Compute the list of names that are already bound in a class. */
     public static List<String> boundTypeNames(PsiClass c){
-       List<String> l = new ArrayList<String>();
+       List<String> l = new ArrayList<>();
        l.add(c.getName());
        for(PsiTypeParameter p : c.getTypeParameters()) l.add(p.getName());
        for(PsiClass i : c.getAllInnerClasses()) l.add(i.getName());
